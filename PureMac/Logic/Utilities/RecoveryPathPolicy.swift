@@ -25,7 +25,7 @@ enum RecoveryPathPolicy {
                 if path.hasPrefix(prefix) {
                     let remainder = String(path.dropFirst(prefix.count))
                     guard let slash = remainder.firstIndex(of: "/") else { continue }
-                    let cache = prefix + remainder[..<slash] + suffix
+                    let cache = prefix + String(remainder[..<slash]) + suffix
                     if within([String(cache)], whole: true) { return true }
                 }
             }
