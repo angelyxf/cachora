@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleName</key>
+	<string>Cachora</string>
+	<key>CFBundleDisplayName</key>
+	<string>Cachora</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright 2026. MIT License.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Cachora needs access to your Desktop to find junk and orphaned files.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Cachora needs access to your Documents to find junk and orphaned files.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Cachora needs access to your Downloads to find junk and orphaned files.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Cachora needs access to removable volumes to scan for junk files.</string>
+	<key>NSSystemAdministrationUsageDescription</key>
+	<string>Cachora needs system administration access to clean caches and uninstall apps completely.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Cachora uses Apple Events to interact with Finder when revealing files.</string>
+	<key>SafeCleanupBeta</key>
+	<true/>
+	<key>SafeCleanupRepository</key>
+	<string>angelyxf/cachora</string>
+	<key>SafeCleanupAssetPrefix</key>
+	<string>Cachora</string>
+	<key>SafeCleanupStorageDirectory</key>
+	<string>Cachora</string>
+</dict>
+</plist>

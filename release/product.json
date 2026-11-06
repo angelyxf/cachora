@@ -1,0 +1,11 @@
+{
+  "name": "Cachora",
+  "slug": "cachora",
+  "bundle_identifier": "io.github.angelyxf.cachora",
+  "storage_directory": "Cachora",
+  "version": "0.1.0-beta.1",
+  "build": "1",
+  "github_repository": "angelyxf/cachora",
+  "beta": true,
+  "chinese_name": "轻盘"
+}

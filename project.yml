@@ -1,0 +1,65 @@
+name: PureMac
+options:
+  bundleIdPrefix: io.github.angelyxf
+  deploymentTarget:
+    macOS: "13.0"
+  xcodeVersion: "16.4"
+  createIntermediateGroups: true
+  defaultConfig: Release
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+    ARCHS: "arm64 x86_64"
+    ONLY_ACTIVE_ARCH: "NO"
+    CODE_SIGN_IDENTITY: "Apple Development"
+    CODE_SIGN_STYLE: "Automatic"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_ENTITLEMENTS: "PureMac/PureMac.entitlements"
+    INFOPLIST_FILE: "PureMac/Info.plist"
+    PRODUCT_BUNDLE_IDENTIFIER: "io.github.angelyxf.cachora"
+    MARKETING_VERSION: "0.1.0-beta.1"
+    CURRENT_PROJECT_VERSION: "1"
+    GENERATE_INFOPLIST_FILE: "NO"
+    ASSETCATALOG_COMPILER_APPICON_NAME: "BetaIcon"
+    COMBINE_HIDPI_IMAGES: "YES"
+
+targets:
+  PureMac:
+    type: application
+    platform: macOS
+    sources:
+      - PureMac
+    settings:
+      base:
+        PRODUCT_NAME: Cachora
+        PRODUCT_MODULE_NAME: PureMac
+        SWIFT_EMIT_LOC_STRINGS: "YES"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+      configs:
+        Debug:
+          CODE_SIGNING_ALLOWED: "NO"
+          CODE_SIGNING_REQUIRED: "NO"
+
+  PureMacTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - PureMacTests
+    dependencies:
+      - target: PureMac
+    settings:
+      base:
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"
+
+schemes:
+  PureMac:
+    build:
+      targets:
+        PureMac: all
+        PureMacTests: [test]
+    test:
+      targets:
+        - name: PureMacTests

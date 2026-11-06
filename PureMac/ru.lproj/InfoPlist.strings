@@ -1,0 +1,8 @@
+/* macOS permission prompts */
+"NSAppleEventsUsageDescription" = "Cachora использует Apple Events для взаимодействия с Finder при показе файлов.";
+"NSDesktopFolderUsageDescription" = "Cachora требуется доступ к папке «Рабочий стол», чтобы находить мусорные и остаточные файлы.";
+"NSDocumentsFolderUsageDescription" = "Cachora требуется доступ к папке «Документы», чтобы находить мусорные и остаточные файлы.";
+"NSDownloadsFolderUsageDescription" = "Cachora требуется доступ к папке «Загрузки», чтобы находить мусорные и остаточные файлы.";
+"NSRemovableVolumesUsageDescription" = "Cachora требуется доступ к съёмным томам для поиска мусорных файлов.";
+"NSSystemAdministrationUsageDescription" = "Cachora требуются права администратора, чтобы полностью очищать кэши и удалять приложения.";
+"NSHumanReadableCopyright" = "© 2026. Лицензия MIT.";
