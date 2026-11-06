@@ -1,0 +1,41 @@
+name: Import reviewed Cachora source
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and restore the reviewed source tree
+        run: |
+          python3 - <<'PYCODE'
+          from pathlib import Path, PurePosixPath
+          import hashlib, zipfile
+          archive = Path("Cachora-0.1.0-beta.1-source.zip")
+          assert hashlib.sha256(archive.read_bytes()).hexdigest() == "05819e524b497e606ef4c2f2ae671fff769ab13d6cf7d6e15e933124f134739d"
+          prefix = "cachora-0.1.0-beta.1/"
+          with zipfile.ZipFile(archive) as source:
+              assert len(source.infolist()) == 193
+              assert sum(x.file_size for x in source.infolist()) < 50_000_000
+              for info in source.infolist():
+                  assert info.filename.startswith(prefix)
+                  relative = PurePosixPath(info.filename[len(prefix):])
+                  assert not relative.is_absolute() and ".." not in relative.parts and ".git" not in relative.parts
+                  if str(relative).startswith(".github/workflows/"):
+                      continue
+                  target = Path(str(relative))
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(source.read(info))
+                  if info.external_attr >> 16 & 0o111:
+                      target.chmod(0o755)
+          PYCODE
+      - name: Commit the verified source snapshot
+        run: |
+          git config user.name "Cachora source import"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Import reviewed Cachora beta source from local commit 4922c6a"
+          git push origin HEAD:main
