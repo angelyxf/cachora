@@ -11,7 +11,7 @@
 | 应用源码编译与临时签名验证 | 通过 |
 | 新版图形界面的测试样本往返 | 通过；仅移动选中样本并恢复，6 个文件内容、权限和扩展属性一致 |
 | 最后更新后的图形重开 | 自动化连接超时，未计为通过；清理恢复界面本轮已验证 |
-| GitHub 自动构建 | 待源码上传后的实际运行 |
+| GitHub 自动构建 | 独立 macOS 15 / Apple Silicon 构建、56 项检查及公开源码检查通过；[运行记录](https://github.com/angelyxf/cachora/actions/runs/42190188661) |
 | Developer ID 证书 | 本机没有可用证书 |
 | Apple 公证与 Gatekeeper 发行评估 | 未执行，依赖自己的 Developer ID 与公证配置 |
 | 完整上游 XCTest、其他系统和 Intel | 未验证 |
