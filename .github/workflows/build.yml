@@ -1,0 +1,25 @@
+name: Cachora checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  beta:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run disposable regression tests
+        run: python3 scripts/build-local-app.py
+      - name: Validate public source
+        run: python3 scripts/prepare-beta.py --check
+      - name: Retain test summaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cachora-checks
+          path: build-local/*.log
+          retention-days: 7
