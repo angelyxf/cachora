@@ -1,4 +1,4 @@
-name: Prepare Cachora source beta
+name: Prepare Cachora reviewed source
 on:
   workflow_dispatch:
 permissions:
@@ -15,7 +15,7 @@ jobs:
         run: python3 scripts/prepare-beta.py --source-archive
       - uses: actions/upload-artifact@v4
         with:
-          name: cachora-source-beta
+          name: cachora-reviewed-source
           path: build-local/*-source.zip
           retention-days: 14
 # This workflow prepares an artifact only. It cannot publish a release,
