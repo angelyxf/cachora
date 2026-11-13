@@ -42,7 +42,7 @@ enum CleaningCategory: String, CaseIterable, Identifiable, Codable {
     var description: String {
         switch self {
         case .smartScan: return "Scan everything at once"
-        case .systemJunk: return "System caches, logs, and temporary files"
+        case .systemJunk: return "Caches, app logs, and temporary files. macOS system logs are skipped."
         case .userCache: return "Application caches and browser data"
         case .aiApps: return "Local AI app logs, caches, and optional history"
         case .mailAttachments: return "Downloaded mail attachments"
@@ -60,16 +60,16 @@ enum CleaningCategory: String, CaseIterable, Identifiable, Codable {
 
     var color: Color {
         switch self {
-        case .smartScan: return .accentColor
+        case .smartScan: return Tint.accent
         case .systemJunk: return .purple
         case .userCache: return .blue
-        case .aiApps: return .teal
+        case .aiApps: return .gray
         case .mailAttachments: return .orange
         case .trashBins: return .red
         case .largeFiles: return .yellow
-        case .purgeableSpace: return .green
+        case .purgeableSpace: return .secondary
         case .xcodeJunk: return .cyan
-        case .brewCache: return .mint
+        case .brewCache: return .brown
         case .nodeCache: return .pink
         case .dockerCache: return .indigo
         case .universalBinaries: return .brown
@@ -242,7 +242,7 @@ struct ScheduleConfig: Codable {
     var categoriesToScan: [CleaningCategory] = CleaningCategory.scannable
     var lastRunDate: Date?
     var nextRunDate: Date?
-    var notifyOnCompletion: Bool = true
+    var notifyOnCompletion: Bool = false
     var minimumCleanSize: Int64 = 100 * 1024 * 1024 // 100 MB
 
     var formattedLastRun: String {
