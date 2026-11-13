@@ -10,6 +10,8 @@
 
 ## 构建与样本验证
 
+首次克隆、工具要求、隔离样本演示及常见错误，见 [源码编译与样本验证](BUILDING.md)。以下命令在仓库根目录运行。
+
 ```sh
 python3 scripts/build-local-app.py
 ```
@@ -23,7 +25,7 @@ python3 scripts/build-local-app.py --package-only --fixture-root "$(cat build-lo
 
 样本应用的构建命令会打印临时路径。样本应用的目录标记、路径边界和无效配置停用均有检查。
 
-恢复数据保存在 `~/Library/Application Support/Cachora/Recovery`。本次不会迁移或删除以前 PureMacLocal 的恢复数据。
+普通应用的恢复数据保存在 `~/Library/Application Support/Cachora/Recovery`。样本应用使用其临时目录中的独立恢复区。
 
 ## 发布准备
 
@@ -46,7 +48,7 @@ python3 scripts/sign-notarize.py --run \
   --notary-profile YOUR_STORED_PROFILE
 ```
 
-脚本通过已有钥匙串配置调用 Apple 服务，不把密钥、密码或证书内容写入仓库。缺少条件会停止并报告，不发布未公证安装包。本机稳定包不等于通过 Apple 公证的公开下载包；安装包的分发状态要以构建记录为准。本次不自动发布源码或安装包。
+脚本通过已有钥匙串配置调用 Apple 服务，不把密钥、密码或证书内容写入仓库。缺少条件会停止并报告，不发布未公证安装包。本机稳定包不等于通过 Apple 公证的公开下载包；安装包的分发状态要以构建记录为准。这些脚本不会自动发布源码或安装包。Build 18 源码已同步至 GitHub `main`；安装包仍只保留本地。
 
 ## 后续公开测试
 
