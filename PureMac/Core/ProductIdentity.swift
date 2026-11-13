@@ -15,10 +15,3 @@ enum ProductIdentity {
         return AppReleaseChannel(repository: repository, assetPrefix: prefix, includesPrereleases: isPublicBeta)
     }
 }
-
-enum BetaCapabilities {
-    static let categories: [CleaningCategory] = [.userCache, .nodeCache, .brewCache]
-    static func permits(_ category: CleaningCategory, enabled: Bool = ProductIdentity.isPublicBeta) -> Bool {
-        !enabled || categories.contains(category)
-    }
-}
