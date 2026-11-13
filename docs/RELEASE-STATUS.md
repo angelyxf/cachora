@@ -1,6 +1,8 @@
 # Cachora 0.1.0 · Build 18 验证与发行状态
 
-2026-11-12：完成首个本机稳定构建及同版 DMG、ZIP。当前范围是这台 Apple Silicon Mac 的本地使用；使用临时签名，尚未完成 Developer ID 签名、Apple 公证和 Gatekeeper 公开发行评估。本次未上传 GitHub，也未改动实际 `/Applications`。
+2026-11-13：Build 18 源码已通过 [PR #1](https://github.com/angelyxf/cachora/pull/1) 同步至 GitHub `main`（`4ec567b`）。[合并后的检查](https://github.com/angelyxf/cachora/actions/runs/43357979247) 已完成应用构建与 115 项样本检查。
+
+2026-11-12 完成的同版 DMG、ZIP 仍仅供本机使用，未上传为 GitHub Release 或公开下载。使用临时签名，尚未完成 Developer ID 签名、Apple 公证和 Gatekeeper 公开发行评估；没有改动实际 `/Applications`。
 
 ## 本版修复
 
@@ -30,7 +32,8 @@
 | DMG / ZIP 启动 | 分别从测试安装路径启动，进程路径及设置页均核对为 0.1.0 Build 18；没有扫描或清理实际文件 |
 | Developer ID 证书 | 本机 0 张可用证书，尚无开发者账号 |
 | Apple 公证、Gatekeeper 公开发行评估 | 未执行；本地包保留 `local-preview` 标记，`distribution_ready: false` |
-| 完整上游 XCTest、Intel、其他 macOS | 未验证 |
+| GitHub Actions `macos-15` | 源码构建及 115 项样本检查通过；未进行该系统的人工图形验证 |
+| 完整上游 XCTest、Intel、其他未列出的 macOS | 未验证 |
 
 共执行 115 项自动检查。当前编译目标为 macOS 13、arm64；实际构建和图形验证环境为 macOS 27.0.1 / Apple Silicon，使用 CLT 的 macOS 26.5 SDK。目标最低系统版本不等于已在所有系统验证。
 
@@ -38,7 +41,13 @@
 
 此前构建已完成访达右键卸载选中包边界、临时目录清理恢复、大文件读取阻塞返回部分结果、系统日志跳过、相似照片中文统计、Apple 备份复核，以及 Homebrew 检查失败后禁用旧更新结果的样本验证。本版对应回归已重新运行；这些历史图形场景未全部重新逐一操作。
 
-构建 17 的 9 项重复文件筛选/忽略检查已包含在本版 43 项发布回归中。持久化忽略、撤销、文件变化后失效与筛选全选保留至少一份均通过。GitHub 先前发布的源码仍为较早的内测构建，本次稳定包尚未对外发布。
+构建 17 的 9 项重复文件筛选/忽略检查已包含在本版 43 项发布回归中。持久化忽略、撤销、文件变化后失效与筛选全选保留至少一份均通过。GitHub `main` 已更新至 Build 18；旧的源码内测 Release 仍是历史版本，不能作为 Build 18 安装包入口。本次稳定安装包尚未对外发布。
+
+## 首页截图验证
+
+2026-11-13 使用同一 Build 18 的隔离样本模式拍摄重复文件、清理复核与恢复记录。截图全部来自临时目录中生成的文件，没有使用真实文档、个人主目录或实际应用列表。重复文件演示按“示例”搜索并筛选文稿，全选后只选择两组中的 3 份多余副本，未执行移动。
+
+缓存演示只把 `01-Round-trip` 移入独立恢复区，拍摄后已恢复原位。全部 40 个样本文件的内容摘要、权限和扩展属性核对一致，范围外保护样本未改变。窗口中的“测试版”是隔离验证标识，产品版本仍为 `0.1.0 / Build 18`。
 
 ## 本地交付记录
 
@@ -49,4 +58,4 @@
 - 安装包与校验码：`build-local/installer-preview-latest.json` 指向本次独立目录
 - 自动检查日志：`build-local/scan-regressions.log`、`recovery-store-tests.log`、`cleanup-recovery-integration.log`、`release-readiness.log`
 
-构建、测试和后续公开发行步骤见 [构建与发布说明](BETA-RELEASE.md) 及 [macOS 安装包说明](MACOS-DISTRIBUTION.md)。
+首次编译与隔离验证见 [源码编译与样本验证](BUILDING.md)；后续公开发行步骤见 [构建与发布说明](BETA-RELEASE.md) 及 [macOS 安装包说明](MACOS-DISTRIBUTION.md)。
