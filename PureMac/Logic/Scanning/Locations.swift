@@ -31,10 +31,12 @@ class Locations: ObservableObject {
 
     let cacheDir: String
     let tempDir: String
+    let sampleHome: URL?
     var appSearch: SearchCategory
     var reverseSearch: SearchCategory
 
     init() {
+        sampleHome = nil
         let (cacheDir, tempDir) = Locations.darwinCT()
         self.cacheDir = cacheDir
         self.tempDir = tempDir
@@ -138,6 +140,18 @@ class Locations: ObservableObject {
             "/Library/LaunchDaemons",
             "/Library/PrivilegedHelperTools",
         ])
+    }
+
+    init(sampleHome: URL) {
+        self.sampleHome = sampleHome
+        cacheDir = sampleHome.appendingPathComponent("Library/Caches").path
+        tempDir = sampleHome.appendingPathComponent("tmp").path
+        let volatile = OrphanSafetyPolicy.sampleRoots(home: sampleHome)
+        appSearch = SearchCategory(name: "Apps", paths: volatile + [
+            sampleHome.appendingPathComponent("Library/Application Support").path,
+            sampleHome.appendingPathComponent("Library/Preferences").path,
+        ])
+        reverseSearch = SearchCategory(name: "Reverse", paths: volatile)
     }
 
     static func darwinCT() -> (String, String) {
