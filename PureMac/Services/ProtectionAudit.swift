@@ -325,7 +325,7 @@ struct ProtectionAudit: Sendable {
             return ProtectionFinding(
                 check: check,
                 status: .unknown,
-                detail: result.timedOut ? String(localized: "The check timed out.") : String(localized: "PureMac could not read this setting."),
+                detail: result.timedOut ? String(localized: "The check timed out.") : String(localized: "Cachora could not read this setting."),
                 version: nil
             )
         }
@@ -382,7 +382,7 @@ struct ProtectionAudit: Sendable {
             return ProtectionFinding(
                 check: .xProtect,
                 status: .unknown,
-                detail: String(localized: "PureMac could not confirm the local XProtect installation."),
+                detail: String(localized: "Cachora could not confirm the local XProtect installation."),
                 version: nil
             )
         }

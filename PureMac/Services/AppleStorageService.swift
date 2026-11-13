@@ -73,6 +73,14 @@ enum AppleStorageService {
         ]
     }
 
+    static func sampleLocations(home: URL) -> [AppleStorageLocation] {
+        standardLocations(homeDirectory: home).map { location in
+            let url = location.kind == .deviceBackups
+                ? location.url : home.appendingPathComponent(String(location.url.path.dropFirst()))
+            return AppleStorageLocation(kind: location.kind, url: url)
+        }.filter { (try? RecoveryFileSystem.checkDirectory($0.url.path)) != nil }
+    }
+
     static func scan(
         locations: [AppleStorageLocation] = standardLocations(),
         maxEntriesPerLocation: Int = 100_000
@@ -115,12 +123,16 @@ enum AppleStorageService {
                              reachedLimit: reachedLimit)
         }
 
-        var ancestor = URL(fileURLWithPath: "/", isDirectory: true)
-        for component in root.pathComponents.dropFirst() {
+        guard let walkPath = try? RecoveryFileSystem.directoryWalkPath(root.path) else {
+            inaccessible += 1
+            return result(.unavailable, bytes: nil)
+        }
+        var ancestor = ""
+        for component in walkPath.split(separator: "/") {
             try Task.checkCancellation()
-            ancestor.appendPathComponent(component)
+            ancestor += "/" + component
             var metadata = stat()
-            guard lstat(ancestor.path, &metadata) == 0 else {
+            guard lstat(ancestor, &metadata) == 0 else {
                 if errno == ENOENT { return result(.notPresent, bytes: nil) }
                 inaccessible += 1
                 return result(.unavailable, bytes: nil)

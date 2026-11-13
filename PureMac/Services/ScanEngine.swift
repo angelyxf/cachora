@@ -1,11 +1,15 @@
+import Darwin
 import Foundation
 
 actor ScanEngine {
     private let fileManager = FileManager.default
     private let home: String
+    private let samplesOnly: Bool
 
-    init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
-        home = XcodeBuildMCPDerivedDataSupport.canonicalHomeDirectory(homeDirectory).path
+    init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser, samplesOnly: Bool = false) {
+        home = (samplesOnly ? homeDirectory.standardizedFileURL
+                            : XcodeBuildMCPDerivedDataSupport.canonicalHomeDirectory(homeDirectory)).path
+        self.samplesOnly = samplesOnly
     }
 
     /// Live path reporter for the dashboard's scanning ticker. Throttled so
@@ -52,7 +56,10 @@ actor ScanEngine {
     ) async -> CategoryResult {
         // Async package-manager probes can suspend. Keep diagnostics isolated
         // when a CLI caller requests several categories concurrently.
-        let worker = ScanEngine(homeDirectory: URL(fileURLWithPath: home, isDirectory: true))
+        if samplesOnly && !CleaningCategory.scannable.contains(category) {
+            return CategoryResult(category: category, items: [], totalSize: 0)
+        }
+        let worker = ScanEngine(homeDirectory: URL(fileURLWithPath: home, isDirectory: true), samplesOnly: samplesOnly)
         return await worker.performScanCategory(category, onPath: onPath)
     }
 
@@ -78,7 +85,7 @@ actor ScanEngine {
         case .trashBins:
             result = scanTrash()
         case .largeFiles:
-            result = scanLargeFiles()
+            return await scanLargeFiles(onPath: onPath)
         case .purgeableSpace:
             result = scanPurgeableSpace()
         case .xcodeJunk:
@@ -107,6 +114,15 @@ actor ScanEngine {
     }
 
     private func isReadableLocation(_ path: String) -> Bool {
+        if samplesOnly {
+            guard RecoveryFileSystem.inside(path, home),
+                  let parent = try? RecoveryFileSystem.directory((path as NSString).deletingLastPathComponent) else {
+                return false
+            }
+            defer { close(parent) }
+            guard (try? RecoveryFileSystem.snapshot(at: parent, name: (path as NSString).lastPathComponent,
+                                                   includeTree: false)) != nil else { return false }
+        }
         do {
             _ = try fileManager.attributesOfItem(atPath: path)
             guard fileManager.isReadableFile(atPath: path) else {
@@ -166,16 +182,8 @@ actor ScanEngine {
         var items: [CleanableItem] = []
         var totalSize: Int64 = 0
 
-        let systemPaths = [
-            "/Library/Caches",
-            "/Library/Logs",
-            "/private/var/log",
-            "\(home)/Library/Logs",
-            "/private/tmp",
-            "/private/var/tmp",
-        ]
-
-        for path in systemPaths {
+        for path in RecoveryPathPolicy.systemJunkRoots(home: home)
+        where !samplesOnly || RecoveryFileSystem.inside(path, home) {
             let scanned = scanDirectory(path: path, category: .systemJunk, recursive: true, maxDepth: 3)
             items.append(contentsOf: scanned)
         }
@@ -195,6 +203,8 @@ actor ScanEngine {
             "\(home)/Library/Caches/ollama",
             "\(home)/Library/Caches/npm",
             "\(home)/Library/Caches/Yarn",
+            "\(home)/Library/Caches/com.apple.dt.Xcode",
+            "\(home)/Library/Caches/org.swift.swiftpm",
             "\(home)/Library/Caches/dev.kdrag0n.MacVirt",
         ] + ProviderPaths.deniedRoots(homeDirectory: URL(fileURLWithPath: home, isDirectory: true))).map(normalizePath))
 
@@ -234,6 +244,7 @@ actor ScanEngine {
             "\(home)/Library/Group Containers",
         ]
         for root in containerRoots {
+            guard !samplesOnly || isReadableLocation(root) else { continue }
             let containers: [String]
             do {
                 containers = try fileManager.contentsOfDirectory(atPath: root)
@@ -366,103 +377,97 @@ actor ScanEngine {
         return CategoryResult(category: .trashBins, items: items, totalSize: totalSize)
     }
 
-    private func scanLargeFiles() -> CategoryResult {
-        var items: [CleanableItem] = []
-
-        // Honor the thresholds the user set in Settings → Cleaning. These keys
-        // were previously surfaced in the UI but never read here, so the sliders
-        // did nothing; defaults match the old hardcoded 100 MB / 12-month values.
+    private func scanLargeFiles(onPath: (@Sendable (String) -> Void)?) async -> CategoryResult {
         let defaults = UserDefaults.standard
         let thresholdMB = defaults.object(forKey: "settings.cleaning.largeFileThreshold") as? Int ?? 100
         let oldFileMonths = defaults.object(forKey: "settings.cleaning.oldFileMonths") as? Int ?? 12
         let minSize = Int64(max(1, thresholdMB)) * 1024 * 1024
         let oldCutoff = Calendar.current.date(byAdding: .month, value: -max(1, oldFileMonths), to: Date())
             ?? Date.distantPast
-
-        // Folders the user excluded from the large-file scan (issue #121) —
-        // e.g. VM images, media libraries, project assets they never want
-        // surfaced. Files anywhere inside an excluded folder are skipped, and
-        // the directory subtree is pruned so we don't even walk it.
         let excludedFolders = (defaults.stringArray(forKey: "settings.cleaning.largeFileExcludedFolders") ?? [])
-            .map(normalizePath)
             .filter { !$0.isEmpty }
-
-        // Honor the "Skip hidden files during scan" toggle, which was a dead
-        // control until now (no scanner read it). Default true preserves the
-        // previous always-skip behavior.
+            .map { ($0 as NSString).standardizingPath }
         let skipHidden = defaults.object(forKey: "settings.cleaning.skipHiddenFiles") as? Bool ?? true
-        var enumerationOptions: FileManager.DirectoryEnumerationOptions = [.skipsPackageDescendants]
-        if skipHidden { enumerationOptions.insert(.skipsHiddenFiles) }
+        let samplesOnly = self.samplesOnly
+        let homeURL = URL(fileURLWithPath: home, isDirectory: true)
+        let searchPaths = ["Downloads", "Documents", "Desktop"].map { homeURL.appendingPathComponent($0) }
 
-        func isExcluded(_ path: String) -> Bool {
-            let normalized = normalizePath(path)
-            return excludedFolders.contains { normalized == $0 || normalized.hasPrefix($0 + "/") }
-        }
+        return await LargeFileScan.run(at: home, onPath: onPath) { scan in
+            // Keep file-provider downloads off this worker. The policy belongs
+            // to this thread, so restore it before GCD reuses the thread.
+            let type = IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES
+            let scope = IOPOL_SCOPE_THREAD
+            let previousPolicy = getiopolicy_np(type, scope)
+            guard previousPolicy >= 0, setiopolicy_np(type, scope, IOPOL_MATERIALIZE_DATALESS_FILES_OFF) == 0 else {
+                scan.record(path: homeURL.path, error: POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO))
+                return
+            }
+            defer { _ = setiopolicy_np(type, scope, previousPolicy) }
 
-        let searchPaths = [
-            "\(home)/Downloads",
-            "\(home)/Documents",
-            "\(home)/Desktop",
-        ]
+            var options: FileManager.DirectoryEnumerationOptions = [.skipsPackageDescendants]
+            if skipHidden { options.insert(.skipsHiddenFiles) }
 
-        for basePath in searchPaths {
-            if Task.isCancelled { break }
-            if isExcluded(basePath) { continue }
-            guard isReadableLocation(basePath) else { continue }
-            guard let enumerator = fileManager.enumerator(
-                at: URL(fileURLWithPath: basePath),
-                includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey],
-                options: enumerationOptions,
-                errorHandler: { url, error in
-                    self.recordScanIssue(path: url.path, error: error)
-                    return !Task.isCancelled
-                }
-            ) else { continue }
+            func isExcluded(_ path: String) -> Bool {
+                excludedFolders.contains { path == $0 || RecoveryFileSystem.inside(path, $0) }
+            }
 
-            // No entry cap. A 5k cap was here previously and meant any user
-            // with hundreds of thousands of small files (e.g. node_modules
-            // checkouts) would never see anything past entry 5k — the
-            // scattered 100+ MB files were always past that bound.
-            for case let fileURL as URL in enumerator {
-                if Task.isCancelled { break }
-                // Prune excluded subtrees: hitting the excluded directory itself
-                // skips its whole contents; for files the call is a harmless no-op.
-                // Skip the path normalization entirely when nothing is excluded.
-                if !excludedFolders.isEmpty, isExcluded(fileURL.path) {
-                    enumerator.skipDescendants()
+            for baseURL in searchPaths {
+                let base = baseURL.path
+                guard scan.visit(base) else { return }
+                if isExcluded(base) { continue }
+                var root = stat()
+                guard lstat(base, &root) == 0 else {
+                    scan.record(path: base, error: POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO))
                     continue
                 }
-                report(fileURL.path)
-                let resourceValues: URLResourceValues
-                do {
-                    resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey])
-                } catch {
-                    recordScanIssue(path: fileURL.path, error: error)
+                guard root.st_mode & S_IFMT == S_IFDIR, root.st_flags & UInt32(SF_DATALESS) == 0,
+                      !ProviderPaths.isProviderOwned(base, homeDirectory: homeURL) else {
+                    scan.record(path: base, error: CocoaError(.fileReadUnknown))
                     continue
                 }
-                guard let isFile = resourceValues.isRegularFile, isFile,
-                      let fileSize = resourceValues.fileSize
-                else { continue }
+                guard let enumerator = FileManager.default.enumerator(
+                    at: baseURL,
+                    includingPropertiesForKeys: [.isPackageKey],
+                    options: options,
+                    errorHandler: { url, error in
+                        scan.record(path: url.path, error: error)
+                        return !scan.isStopped
+                    }
+                ) else {
+                    scan.record(path: base, error: CocoaError(.fileReadUnknown))
+                    continue
+                }
 
-                let size = Int64(fileSize)
-                let modDate = resourceValues.contentModificationDate
+                for case let fileURL as URL in enumerator {
+                    let path = fileURL.standardizedFileURL.path
+                    guard scan.visit(path) else { return }
+                    if isExcluded(path) || (!samplesOnly && CleanupExclusions.isGeneratedTestRoot(path)) {
+                        enumerator.skipDescendants()
+                        continue
+                    }
+                    var metadata = stat()
+                    guard lstat(path, &metadata) == 0 else {
+                        scan.record(path: path, error: POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO))
+                        enumerator.skipDescendants()
+                        continue
+                    }
+                    if metadata.st_flags & UInt32(SF_DATALESS) != 0 {
+                        scan.record(path: path, error: CocoaError(.fileReadUnknown))
+                        enumerator.skipDescendants()
+                        continue
+                    }
+                    guard metadata.st_mode & S_IFMT == S_IFREG else { continue }
 
-                if size > minSize || (modDate != nil && modDate! < oldCutoff && size > 10 * 1024 * 1024) {
-                    items.append(CleanableItem(
-                        name: fileURL.lastPathComponent,
-                        path: fileURL.path,
-                        size: size,
-                        category: .largeFiles,
-                        isSelected: false, // Don't auto-select large files
-                        lastModified: modDate
-                    ))
+                    let size = metadata.st_size
+                    let modified = Date(timeIntervalSince1970: Double(metadata.st_mtimespec.tv_sec)
+                        + Double(metadata.st_mtimespec.tv_nsec) / 1_000_000_000)
+                    if size > minSize || (modified < oldCutoff && size > 10 * 1024 * 1024) {
+                        scan.add(CleanableItem(name: fileURL.lastPathComponent, path: path,
+                            size: size, category: .largeFiles, isSelected: false, lastModified: modified))
+                    }
                 }
             }
         }
-
-        items.sort { $0.size > $1.size }
-        let totalSize = items.reduce(0) { $0 + $1.size }
-        return CategoryResult(category: .largeFiles, items: items, totalSize: totalSize)
     }
 
     private func scanPurgeableSpace() -> CategoryResult {
@@ -532,7 +537,7 @@ actor ScanEngine {
         ]
 
         for path in xcodePaths {
-            if fileManager.fileExists(atPath: path) {
+            if isReadableLocation(path) {
                 let size = directorySize(path: path)
                 if size > 0 {
                     items.append(CleanableItem(
@@ -540,7 +545,7 @@ actor ScanEngine {
                         path: path,
                         size: size,
                         category: .xcodeJunk,
-                        isSelected: true,
+                        isSelected: path != "\(home)/Library/Developer/Xcode/Archives",
                         lastModified: nil
                     ))
                 }
@@ -550,27 +555,24 @@ actor ScanEngine {
         // XcodeBuildMCP DerivedData requires explicit user selection.
         // Scheduled cleanup also applies age and lifecycle-lock guards.
         let homeURL = URL(fileURLWithPath: home, isDirectory: true)
-        for discovered in XcodeBuildMCPDerivedDataSupport.discoverDerivedDataDirectories(
-            homeDirectory: homeURL,
-            fileManager: fileManager
-        ) {
-            if let item = makeCleanupItem(
-                name: discovered.name,
-                path: discovered.url.path,
-                category: .xcodeJunk,
-                isSelected: false
+        if !samplesOnly {
+            for discovered in XcodeBuildMCPDerivedDataSupport.discoverDerivedDataDirectories(
+                homeDirectory: homeURL,
+                fileManager: fileManager
             ) {
-                items.append(item)
+                if let item = makeCleanupItem(
+                    name: discovered.name,
+                    path: discovered.url.path,
+                    category: .xcodeJunk,
+                    isSelected: false
+                ) {
+                    items.append(item)
+                }
             }
-        }
 
-        // Downloaded simulator runtimes (often multi-GB each). Listed via
-        // `xcrun simctl runtime list -j` and deleted via
-        // `xcrun simctl runtime delete <id>` — not a plain filesystem unlink,
-        // so paths use the simctl-runtime: prefix (see CleaningEngine).
-        // Runtime downloads are always opt-in because restoring one requires
-        // downloading multiple gigabytes again.
-        items.append(contentsOf: scanSimulatorRuntimes())
+            // Simulator downloads are informational in recoverable cleanup.
+            items.append(contentsOf: scanSimulatorRuntimes())
+        }
 
         let totalSize = items.reduce(0) { $0 + $1.size }
         return CategoryResult(category: .xcodeJunk, items: items, totalSize: totalSize)
@@ -630,7 +632,7 @@ actor ScanEngine {
         // Detect custom HOMEBREW_CACHE via `brew --cache`. Strip HOMEBREW_*
         // from the child env so an attacker can't steer the output via
         // launchctl setenv, then validate the output against knownBrewRoots.
-        let brewBinPaths = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
+        let brewBinPaths = samplesOnly ? [] : ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
         var detectedCustomCache = false
         for brewBin in brewBinPaths {
             guard fileManager.fileExists(atPath: brewBin) else { continue }
@@ -674,7 +676,7 @@ actor ScanEngine {
         }
 
         for path in brewCachePaths {
-            if fileManager.fileExists(atPath: path) {
+            if isReadableLocation(path) {
                 let size = directorySize(path: path)
                 if size > 0 {
                     items.append(CleanableItem(
@@ -740,7 +742,7 @@ actor ScanEngine {
                     Self.validatedNodeCachePath($0, manager: manager.manager, home: home)
                 }
 
-            if let cmd = manager.detectionCommand,
+            if !samplesOnly, let cmd = manager.detectionCommand,
                let cliPath = locateExecutable(named: cmd.cli, searchPaths: cliSearchPaths),
                let detected = await runCommandReadingStdout(executable: cliPath, args: cmd.args) {
                 if let validated = Self.validatedNodeCachePath(
@@ -916,7 +918,7 @@ actor ScanEngine {
         ]
 
         for path in dockerDataDirs {
-            guard fileManager.fileExists(atPath: path) else { continue }
+            guard isReadableLocation(path) else { continue }
             let size = directorySize(path: path)
             guard size > 0 else { continue }
             items.append(CleanableItem(
@@ -939,7 +941,7 @@ actor ScanEngine {
         // must not offer reveal-in-Finder or attempt removeItem on it.
         // Works for both Docker Desktop and OrbStack (both ship a docker CLI
         // at these locations).
-        let dockerBinPaths = ["/usr/local/bin/docker", "/opt/homebrew/bin/docker"]
+        let dockerBinPaths = samplesOnly ? [] : ["/usr/local/bin/docker", "/opt/homebrew/bin/docker"]
         for dockerBin in dockerBinPaths where fileManager.fileExists(atPath: dockerBin) {
             if Task.isCancelled { break }
             if let reclaimable = await reclaimableDockerSpace(dockerBin: dockerBin), reclaimable > 0 {
@@ -1081,6 +1083,7 @@ actor ScanEngine {
             for item in contents {
                 if Task.isCancelled { break }
                 let fullPath = (path as NSString).appendingPathComponent(item)
+                if !samplesOnly && CleanupExclusions.isGeneratedTestRoot(fullPath) { continue }
                 report(fullPath)
                 if excludedPaths.contains(normalizePath(fullPath)) {
                     continue
@@ -1096,9 +1099,11 @@ actor ScanEngine {
                     continue
                 }
 
-                // Skip SIP-protected/immutable entries — they fail even
-                // admin rm and only produce "Couldn't clean everything"
-                // alerts (e.g. /private/var/log/wifi.log).
+                // Skip system junk that can be read but cannot be moved out of its directory.
+                if category == .systemJunk && !fileManager.isDeletableFile(atPath: fullPath) {
+                    continue
+                }
+
                 if FileProtection.isProtectedFromDeletion(path: fullPath) {
                     continue
                 }
@@ -1351,5 +1356,113 @@ actor ScanEngine {
         }
 
         return 0
+    }
+}
+
+
+/// The deadline belongs to the caller, rather than the thread that may be stuck
+/// inside a file-system call. An abandoned read keeps its worker slot until it
+/// returns. Repeated scans cannot accumulate blocked workers.
+final class LargeFileScan: @unchecked Sendable {
+    private static let workerSlot = NSLock()
+    private let lock = NSLock()
+    private let onPath: (@Sendable (String) -> Void)?
+    private var continuation: CheckedContinuation<CategoryResult, Never>?
+    private var stopped = false
+    private var path: String
+    private var lastProgress = ProcessInfo.processInfo.systemUptime
+    private var lastReported: TimeInterval = 0
+    private var items: [CleanableItem] = []
+    private var issues: [String: ScanIssue] = [:]
+
+    private init(path: String, onPath: (@Sendable (String) -> Void)?) {
+        self.path = path
+        self.onPath = onPath
+    }
+
+    static func run(at path: String, inactivityTimeout: TimeInterval = 8,
+                    onPath: (@Sendable (String) -> Void)? = nil,
+                    work: @escaping @Sendable (LargeFileScan) -> Void) async -> CategoryResult {
+        let scan = LargeFileScan(path: path, onPath: onPath)
+        let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        timer.schedule(deadline: .now() + inactivityTimeout, repeating: min(1, inactivityTimeout))
+        timer.setEventHandler { scan.finish(error: .ETIMEDOUT, ifIdleFor: inactivityTimeout) }
+        timer.resume()
+        defer { timer.cancel() }
+
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let start = scan.lock.withLock {
+                    guard !scan.stopped else { return false }
+                    scan.continuation = continuation
+                    return true
+                }
+                guard start else {
+                    continuation.resume(returning: scan.result())
+                    return
+                }
+                DispatchQueue.global(qos: .utility).async {
+                    guard !scan.isStopped else { return }
+                    guard workerSlot.try() else {
+                        scan.finish(error: .EBUSY)
+                        return
+                    }
+                    if !scan.isStopped { work(scan) }
+                    workerSlot.unlock()
+                    scan.finish()
+                }
+            }
+        } onCancel: {
+            scan.finish()
+        }
+    }
+
+    var isStopped: Bool { lock.withLock { stopped } }
+
+    func visit(_ path: String) -> Bool {
+        let now = ProcessInfo.processInfo.systemUptime
+        let (active, report) = lock.withLock {
+            guard !stopped else { return (false, false) }
+            self.path = path
+            lastProgress = now
+            let report = now - lastReported >= 0.1
+            if report { lastReported = now }
+            return (true, report)
+        }
+        if report { onPath?(path) }
+        return active
+    }
+
+    func add(_ item: CleanableItem) {
+        lock.withLock { if !stopped { items.append(item) } }
+    }
+
+    func record(path: String, error: Error) {
+        guard !ScanIssue.isMissingFile(error) else { return }
+        let issue = ScanIssue(path: path, error: error)
+        lock.withLock { if !stopped { issues[issue.id] = issue } }
+    }
+
+    private func finish(error: POSIXErrorCode? = nil, ifIdleFor seconds: TimeInterval? = nil) {
+        let waiting = lock.withLock { () -> CheckedContinuation<CategoryResult, Never>? in
+            guard !stopped else { return nil }
+            if let seconds, ProcessInfo.processInfo.systemUptime - lastProgress < seconds { return nil }
+            stopped = true
+            if let error {
+                let issue = ScanIssue(path: path, error: POSIXError(error))
+                issues[issue.id] = issue
+            }
+            let waiting = continuation
+            continuation = nil
+            return waiting
+        }
+        waiting?.resume(returning: result())
+    }
+
+    private func result() -> CategoryResult {
+        let (items, issues) = lock.withLock { (self.items, self.issues) }
+        return CategoryResult(category: .largeFiles, items: items.sorted { $0.size > $1.size },
+                              totalSize: items.reduce(0) { $0 + $1.size },
+                              issues: issues.values.sorted { $0.path < $1.path })
     }
 }

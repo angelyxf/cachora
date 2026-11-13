@@ -23,7 +23,6 @@ struct InstalledCaskPresentation: @unchecked Sendable {
 }
 
 enum ApplicationUpdaterError: LocalizedError, Equatable {
-    case homebrewNotInstalled
     case invalidResponse
     case invalidCaskIdentifier(String)
     case noSelection
@@ -33,10 +32,8 @@ enum ApplicationUpdaterError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .homebrewNotInstalled:
-            return String(localized: "Homebrew was not found in a standard installation location.")
         case .invalidResponse:
-            return String(localized: "Homebrew returned update information PureMac could not read.")
+            return String(localized: "Homebrew returned update information Cachora could not read.")
         case .invalidCaskIdentifier(let token):
             return String(localized: "Homebrew returned an invalid cask identifier: \(token)")
         case .noSelection:
@@ -46,40 +43,79 @@ enum ApplicationUpdaterError: LocalizedError, Equatable {
         case .timedOut:
             return String(localized: "Homebrew did not finish before the operation timed out.")
         case .outputLimitExceeded:
-            return String(localized: "Homebrew produced more output than PureMac could safely retain.")
+            return String(localized: "Homebrew produced more output than Cachora could safely retain.")
         }
     }
 }
 
+enum AppUpdatePhase: Equatable {
+    case idle
+    case checking
+    case ready
+    case checkFailed(String)
+    case upgrading
+    case verifying
+    case upgradeFailed(String)
+    case needsVerification(String?)
+    case updatesRemaining(Int)
+    case completed(Int)
+}
+
 @MainActor
 final class ApplicationUpdater: ObservableObject {
+    typealias BrewCommand = @Sendable (URL, [String], TimeInterval) async throws -> BrewProcessOutput
+
     nonisolated static let trustedBrewPaths = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
 
     @Published private(set) var updates: [ManagedAppUpdate] = []
-    @Published private(set) var isChecking = false
-    @Published private(set) var isUpgrading = false
-    @Published private(set) var hasChecked = false
-    @Published private(set) var errorMessage: String?
-    @Published private(set) var statusMessage: String?
+    @Published private(set) var phase: AppUpdatePhase = .idle
     @Published private(set) var lastCheckedAt: Date?
-    @Published private(set) var brewURL: URL?
+    @Published private var brewURL: URL?
     @Published private(set) var caskPresentations: [String: InstalledCaskPresentation] = [:]
-    @Published var selectedTokens: Set<String> = []
+    @Published private(set) var selectedTokens: Set<String> = []
+    private let locateBrew: () -> URL?
+    private let runBrew: BrewCommand
 
-    init() {
-        brewURL = Self.findBrewExecutable()
+    init(
+        locateBrew: @escaping () -> URL? = { ApplicationUpdater.findBrewExecutable() },
+        runBrew: @escaping BrewCommand = { url, arguments, timeout in
+            try await BrewProcessRunner.run(executableURL: url, arguments: arguments, timeout: timeout)
+        }
+    ) {
+        self.locateBrew = locateBrew
+        self.runBrew = runBrew
+        brewURL = locateBrew()
     }
 
     var isHomebrewAvailable: Bool { brewURL != nil }
-    var isBusy: Bool { isChecking || isUpgrading }
+    var isBusy: Bool { phase == .checking || phase == .upgrading || phase == .verifying }
+    var hasCurrentResults: Bool {
+        switch phase {
+        case .ready, .updatesRemaining, .completed: return isHomebrewAvailable
+        default: return false
+        }
+    }
     var selectedCount: Int { selectedTokens.count }
+    var canUpgradeSelection: Bool { hasCurrentResults && !selectedTokens.isEmpty }
+    var selectedUpdates: [ManagedAppUpdate] {
+        updates.filter { selectedTokens.contains($0.token) && !$0.isPinned }
+    }
 
     func refreshAvailability() {
-        brewURL = Self.findBrewExecutable()
+        guard !isBusy else { return }
+        let available = locateBrew()
+        guard available != brewURL else { return }
+
+        brewURL = available
+        phase = .idle
+        updates = []
+        caskPresentations = [:]
+        selectedTokens = []
+        lastCheckedAt = nil
     }
 
     func setSelected(_ selected: Bool, token: String) {
-        guard updates.contains(where: { $0.token == token && !$0.isPinned }) else { return }
+        guard hasCurrentResults, updates.contains(where: { $0.token == token && !$0.isPinned }) else { return }
         if selected {
             selectedTokens.insert(token)
         } else {
@@ -90,86 +126,62 @@ final class ApplicationUpdater: ObservableObject {
     func checkForUpdates() async {
         guard !isBusy else { return }
         refreshAvailability()
-        guard let brewURL else {
-            errorMessage = ApplicationUpdaterError.homebrewNotInstalled.localizedDescription
-            hasChecked = false
-            return
-        }
+        guard let brewURL else { return }
 
-        isChecking = true
-        errorMessage = nil
-        statusMessage = nil
-        defer { isChecking = false }
-
+        phase = .checking
         do {
-            updates = try await Self.fetchUpdates(using: brewURL)
-            caskPresentations = await Self.fetchCaskPresentations(for: updates, using: brewURL)
-            selectedTokens.formIntersection(Set(updates.filter { !$0.isPinned }.map(\.token)))
-            hasChecked = true
-            lastCheckedAt = Date()
+            try await refreshResults(using: brewURL)
+            phase = .ready
         } catch is CancellationError {
-            return
+            phase = .idle
         } catch {
-            errorMessage = Self.displayMessage(for: error)
+            phase = .checkFailed(Self.displayMessage(for: error))
         }
+        refreshAvailability()
     }
 
     func upgrade(_ selection: [ManagedAppUpdate]) async {
         guard !isBusy else { return }
-        guard let brewURL else {
-            errorMessage = ApplicationUpdaterError.homebrewNotInstalled.localizedDescription
-            return
-        }
+        refreshAvailability()
+        guard let brewURL, canUpgradeSelection, selection == selectedUpdates else { return }
+        let tokens = selection.map(\.token).sorted()
 
-        let availableTokens = Set(updates.filter { !$0.isPinned }.map(\.token))
-        let tokens = selection
-            .filter { availableTokens.contains($0.token) && !$0.isPinned }
-            .map(\.token)
-            .sorted()
-
-        isUpgrading = true
-        errorMessage = nil
-        statusMessage = nil
-        defer { isUpgrading = false }
-
+        phase = .upgrading
+        defer { refreshAvailability() }
         do {
             let arguments = try Self.upgradeArguments(caskTokens: tokens)
-            let output = try await BrewProcessRunner.run(
-                executableURL: brewURL,
-                arguments: arguments,
-                timeout: 1_800
-            )
+            let output = try await runBrew(brewURL, arguments, 1_800)
             guard output.status == 0 else {
                 throw ApplicationUpdaterError.commandFailed(Self.failureMessage(from: output))
             }
-
-            do {
-                updates = try await Self.fetchUpdates(using: brewURL)
-                caskPresentations = await Self.fetchCaskPresentations(for: updates, using: brewURL)
-                hasChecked = true
-                lastCheckedAt = Date()
-                let remaining = Set(updates.map(\.token)).intersection(tokens)
-                selectedTokens.formIntersection(Set(updates.filter { !$0.isPinned }.map(\.token)))
-                if remaining.isEmpty {
-                    statusMessage = tokens.count == 1
-                        ? String(localized: "Homebrew updated the selected app.")
-                        : String(localized: "Homebrew updated the \(tokens.count) selected apps.")
-                } else {
-                    statusMessage = remaining.count == 1
-                        ? String(localized: "Homebrew finished, but 1 selected app still reports an update.")
-                        : String(localized: "Homebrew finished, but \(remaining.count) selected apps still report updates.")
-                }
-            } catch is CancellationError {
-                statusMessage = String(localized: "Homebrew finished. Check again to verify installed versions.")
-            } catch {
-                statusMessage = String(localized: "Homebrew finished. Check again to verify installed versions.")
-                errorMessage = Self.displayMessage(for: error)
-            }
         } catch is CancellationError {
+            phase = .needsVerification(nil)
             return
         } catch {
-            errorMessage = Self.displayMessage(for: error)
+            phase = .upgradeFailed(Self.displayMessage(for: error))
+            return
         }
+
+        phase = .verifying
+        do {
+            try await refreshResults(using: brewURL)
+            let remaining = Set(updates.map(\.token)).intersection(tokens).count
+            phase = remaining == 0 ? .completed(tokens.count) : .updatesRemaining(remaining)
+        } catch is CancellationError {
+            phase = .needsVerification(nil)
+        } catch {
+            phase = .needsVerification(Self.displayMessage(for: error))
+        }
+    }
+
+    private func refreshResults(using brewURL: URL) async throws {
+        let latest = try await Self.fetchUpdates(using: brewURL, run: runBrew)
+        let presentations = await Self.fetchCaskPresentations(for: latest, using: brewURL, run: runBrew)
+        try Task.checkCancellation()
+        updates = latest
+        caskPresentations = presentations
+        selectedTokens.formIntersection(Set(latest.filter { !$0.isPinned }.map(\.token)))
+        lastCheckedAt = Date()
     }
 
     func openAppStoreUpdates() {
@@ -298,12 +310,8 @@ final class ApplicationUpdater: ObservableObject {
         return detail.isEmpty ? "Homebrew exited with status \(output.status)." : detail
     }
 
-    nonisolated private static func fetchUpdates(using brewURL: URL) async throws -> [ManagedAppUpdate] {
-        let output = try await BrewProcessRunner.run(
-            executableURL: brewURL,
-            arguments: ["outdated", "--cask", "--json=v2"],
-            timeout: 300
-        )
+    nonisolated private static func fetchUpdates(using brewURL: URL, run: BrewCommand) async throws -> [ManagedAppUpdate] {
+        let output = try await run(brewURL, ["outdated", "--cask", "--json=v2"], 300)
         guard output.status == 0 else {
             throw ApplicationUpdaterError.commandFailed(failureMessage(from: output))
         }
@@ -312,15 +320,12 @@ final class ApplicationUpdater: ObservableObject {
 
     nonisolated private static func fetchCaskPresentations(
         for updates: [ManagedAppUpdate],
-        using brewURL: URL
+        using brewURL: URL,
+        run: BrewCommand
     ) async -> [String: InstalledCaskPresentation] {
         let tokens = updates.map(\.token)
         guard !tokens.isEmpty,
-              let output = try? await BrewProcessRunner.run(
-                executableURL: brewURL,
-                arguments: ["info", "--json=v2", "--cask", "--"] + tokens,
-                timeout: 60
-              ),
+              let output = try? await run(brewURL, ["info", "--json=v2", "--cask", "--"] + tokens, 60),
               output.status == 0,
               let descriptors = try? parseCaskPresentationDescriptors(
                 output.stdout,

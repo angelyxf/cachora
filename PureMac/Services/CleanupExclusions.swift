@@ -30,6 +30,22 @@ enum CleanupExclusions {
         }
     }
 
+    static func isGeneratedTestRoot(_ path: String) -> Bool {
+        if path.hasSuffix("/build-local/test-workspaces") || path.hasSuffix("/build-local/.retired-test-artifacts") {
+            return true
+        }
+        let parent = (path as NSString).deletingLastPathComponent
+        guard parent == "/private/tmp" || parent == "/tmp" else { return false }
+        let name = (path as NSString).lastPathComponent
+        for prefix in ["cachora-fixture-", "cachora-ui-"] where name.hasPrefix(prefix) {
+            let suffix = name.dropFirst(prefix.count)
+            return suffix.count == 8 && suffix.utf8.allSatisfy {
+                (97...122).contains($0) || (48...57).contains($0) || $0 == 95
+            }
+        }
+        return false
+    }
+
     private static func resolvedPath(_ url: URL) -> String {
         var ancestor = url
         var suffix: [String] = []

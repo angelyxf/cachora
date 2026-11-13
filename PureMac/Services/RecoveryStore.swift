@@ -41,8 +41,8 @@ actor RecoveryStore {
          pathValidator: (@Sendable (String, String, RecoverySnapshot) -> Bool)? = nil,
          fault: (@Sendable (RecoveryCheckpoint) throws -> Void)? = nil) {
         self.root = root
-        self.allowedRoots = allowedRoots.map { $0.path }
-        self.allowedRootItems = Set(allowedRootItems.map(\.path))
+        self.allowedRoots = allowedRoots.compactMap { try? RecoveryFileSystem.directoryWalkPath($0.path) }
+        self.allowedRootItems = Set(allowedRootItems.compactMap { try? RecoveryFileSystem.directoryWalkPath($0.path) })
         self.pathValidator = pathValidator
         self.fault = fault
     }
@@ -51,10 +51,14 @@ actor RecoveryStore {
 
     private func validateOriginal(_ path: String, category: String, snapshot: RecoverySnapshot) throws {
         let normalized = try RecoveryFileSystem.normalized(path)
+        // Compare the same verified system aliases used by descriptor-based
+        // moves. This also keeps the vault exclusion effective across aliases.
+        let original = try RecoveryFileSystem.directoryWalkPath(path)
+        let vault = try RecoveryFileSystem.directoryWalkPath(root.path)
         guard normalized == path,
-              (allowedRoots.contains(where: { RecoveryFileSystem.inside(path, $0) }) || allowedRootItems.contains(path)),
-              !RecoveryFileSystem.inside(path, root.path), path != root.path,
-              !RecoveryFileSystem.inside(root.path, path) else { throw RecoveryFailure.unsafePath }
+              (allowedRoots.contains(where: { RecoveryFileSystem.inside(original, $0) }) || allowedRootItems.contains(original)),
+              !RecoveryFileSystem.inside(original, vault), original != vault,
+              !RecoveryFileSystem.inside(vault, original) else { throw RecoveryFailure.unsafePath }
         guard snapshot.isDirectory || snapshot.isRegularFile,
               pathValidator?(path, category, snapshot) ?? true else { throw RecoveryFailure.unsafePath }
     }
@@ -184,11 +188,12 @@ actor RecoveryStore {
             guard entry.canRestore else { throw RecoveryFailure.invalidRecord }
             let stored = try RecoveryFileSystem.snapshot(at: objects, name: id.uuidString)
             guard stored == entry.snapshot else { throw RecoveryFailure.changed }
-            let parentPath = (entry.originalPath as NSString).deletingLastPathComponent
+            let original = try RecoveryFileSystem.directoryWalkPath(entry.originalPath)
+            let parentPath = (original as NSString).deletingLastPathComponent
             // Recreate missing parents inside an approved root only, never a root itself.
-            guard let root = allowedRoots.filter({ RecoveryFileSystem.inside(entry.originalPath, $0) || (allowedRootItems.contains(entry.originalPath) && entry.originalPath == $0) })
+            guard let root = allowedRoots.filter({ RecoveryFileSystem.inside(original, $0) || (allowedRootItems.contains(original) && original == $0) })
                 .max(by: { $0.count < $1.count }) else { throw RecoveryFailure.unsafePath }
-            let approvedPath = root == entry.originalPath ? (root as NSString).deletingLastPathComponent : root
+            let approvedPath = root == original ? (root as NSString).deletingLastPathComponent : root
             let approved = try RecoveryFileSystem.directory(approvedPath)
             close(approved)
             let parent = try RecoveryFileSystem.directory(parentPath, create: true)
