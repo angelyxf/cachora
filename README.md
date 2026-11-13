@@ -1,18 +1,19 @@
 # Cachora · 轻盘
 
-<img src="PureMac/Assets.xcassets/BetaIcon.appiconset/beta_128@2x.png" width="96" alt="Cachora recovery tray icon">
+<img src="PureMac/Assets.xcassets/BetaIcon.appiconset/beta_128@2x.png" width="96" alt="Cachora recovery loop icon">
 
-A native Mac cache cleaner with a way back.
+A native Mac toolkit for storage, applications, and recoverable cleanup.
 
-先看清，再清理。轻盘把选中的缓存移入本地恢复区，需要时可以放回原处。
+轻盘提供磁盘总览、空间分析和应用管理。文件清理先复核路径，再把选中的可恢复文件移入本地恢复区。
 
-**免费源码内测 · 0.1.0-beta.1 · MIT**
+**0.1.0 · 本地稳定构建 · MIT**
 
-本项目基于 [PureMac](https://github.com/momenbasel/PureMac) 独立开发，保留原 MIT 许可与作者信息。当前是源码内测，尚无经过我们自己 Apple Developer ID 签名、公证的公开安装包。
+本项目基于 [PureMac](https://github.com/momenbasel/PureMac) 独立开发，保留原 MIT 许可与作者信息。当前版本为本地稳定构建，尚无经过我们自己 Apple Developer ID 签名、公证的公开安装包。
 
 ## 这个版本能做什么
 
-- 手动扫描应用缓存、Node 包管理器缓存及 Homebrew 下载缓存。
+- 总览、系统安全检查与性能监测、Apple 功能、应用卸载与更新、卸载残留、空间分析、重复文件和相似照片。
+- 手动扫描系统垃圾、应用缓存、邮件附件、废纸篓、大文件与旧文件，以及 AI、Xcode、Node、Homebrew 和 Docker 清理项目。
 - 显示实际路径、隐藏文件占用，以及无法读取的位置；读失败不当作零占用。
 - 复核选择后移入恢复区，记录原位置和操作状态。
 - 恢复时拒绝覆盖同名文件，保留双方并允许处理冲突后重试。
@@ -20,20 +21,19 @@ A native Mac cache cleaner with a way back.
 
 恢复副本仍占磁盘空间。移入恢复区不等于已经释放空间；恢复区也不是独立备份。永久删除无法撤销。
 
-内测版不提供系统优化、应用卸载、文档清理、模型或对话历史清理、废纸篓清空及自动清理。仓库中的历史工具不代表当前产品支持范围。
+重复文件支持按文件名或路径搜索、类型筛选和三种双向排序。筛选后「全选筛选结果」只选中命中的多余副本，每组至少保留一份。「忽略此组」可在已忽略列表撤销；再次扫描同一文件夹时，文件或组成员变化会使忽略失效。
 
-## 先用测试文件体验
+文件清理会区分可恢复项目和仅供查看的项目。应用卸载、应用残留、重复文件及相似照片会先列出所选路径，确认后移入系统废纸篓。重复文件和相似照片每组至少留一份。可在设置中开启定时扫描，轻盘运行时按计划扫描，移动文件前需要手动复核。
 
-在仓库根目录执行：
+## 本地使用
+
+在仓库根目录构建应用。
 
 ```sh
 python3 scripts/build-local-app.py
-python3 scripts/create-demo-workspace.py
-python3 scripts/build-local-app.py --package-only --fixture-root "$(cat build-local/gui-workspace.txt)"
 ```
 
-- `build-local/CachoraFixture.app`：只操作刚生成的测试文件，配置无效时停用，不回退到真实主目录。
-- `build-local/Cachora.app`：正常主目录版本。只有手动扫描、复核并确认后才移动文件；首次评估请先使用测试版。
+打开 `build-local/Cachora.app`。需要验证文件操作时，可另外生成独立样本。具体步骤见 [构建与发布说明](docs/BETA-RELEASE.md)。
 
 本地构建是临时签名开发包，不能标为 Apple 已公证。脚本目前生成 Apple Silicon 版本；编译目标是 macOS 13，其他系统和芯片的支持以实际验证为准。
 
@@ -47,11 +47,11 @@ python3 scripts/sign-notarize.py --preflight
 
 完整 Xcode 环境也可使用 `project.yml` 或现有 `PureMac.xcodeproj`。模块名与历史目录仍保留 PureMac，以方便审查来源和合并上游。
 
-本轮验证结果与尚未完成的发行条件见 [发布状态](docs/RELEASE-STATUS.md)。详细流程见 [内测发布说明](docs/BETA-RELEASE.md)。不要求关闭 Gatekeeper 或扩大系统权限来体验源码。
+本轮验证结果与尚未完成的发行条件见 [发布状态](docs/RELEASE-STATUS.md)。详细流程见 [构建与发布说明](docs/BETA-RELEASE.md)。不要求关闭 Gatekeeper 或扩大系统权限来体验源码。
 
 ## 隐私和反馈
 
-没有账号、广告、分析 SDK、付款或自动上传。扫描结果、日志与恢复记录留在本机。只有主动检查更新时会访问本项目的 GitHub Releases API。[隐私说明](PRIVACY.md)
+扫描结果、日志与恢复记录留在本机。手动检查轻盘更新会访问本项目的 GitHub Releases API。应用更新工具在用户启动检查时使用 Homebrew 的软件源。[隐私说明](PRIVACY.md)
 
 遇到问题请到 [Issues](https://github.com/angelyxf/cachora/issues) 提交系统版本、芯片类型和使用测试样本复现的步骤。截图和日志请先遮盖私人路径，不上传实际文档、密钥或恢复副本。
 
@@ -65,6 +65,6 @@ python3 scripts/sign-notarize.py --preflight
 
 ## English
 
-Cachora is an independent, MIT-licensed PureMac derivative focused on recoverable cache cleanup. The free source beta exposes application, Node and Homebrew caches only. Review before moving files into local Recovery; restore never overwrites an existing destination. Retained copies still consume disk space, and permanent deletion is irreversible.
+Cachora is an independent, MIT-licensed PureMac derivative with a storage overview, application tools, file comparison, and manual cleanup. Review the paths before moving eligible files into local Recovery. Retained copies still occupy disk space. App uninstallation and file comparison tools use the system Trash.
 
-Use the generated fixture app first. Consumer signing/notarization, OS coverage and full upstream XCTest results are reported explicitly in the release status; source availability is not a safety guarantee. No paid features or consumer download are promised in this beta.
+The regular build is `build-local/Cachora.app`. A separate fixture app is available for development checks. See the release status for Apple signing, notarization, and tested configurations.
