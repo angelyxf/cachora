@@ -41,7 +41,7 @@ struct PermissionSheet: View {
             ZStack {
                 let tint = coordinator.hasFullDiskAccess ? Tint.green : Tint.blue
                 Circle()
-                    .fill(tint.opacity(0.14))
+                    .fill(.regularMaterial)
                     .frame(width: 40, height: 40)
                 headerIcon
                     .foregroundStyle(tint)
@@ -112,7 +112,7 @@ struct PermissionSheet: View {
                         Haptics.tap()
                         coordinator.openSettingsAndReveal()
                     } label: {
-                        Label("Open Settings & reveal PureMac", systemImage: "gear")
+                        Label("Open Settings & reveal Cachora", systemImage: "gear")
                             .font(.system(size: 13, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
@@ -131,7 +131,7 @@ struct PermissionSheet: View {
 
             // Step-by-step strip
             HStack(spacing: 0) {
-                stepCell(number: 1, title: "Turn on PureMac",
+                stepCell(number: 1, title: "Turn on Cachora",
                          caption: "Toggle the row that appears.")
                 stepDivider
                 stepCell(number: 2, title: "Authenticate",
@@ -162,7 +162,7 @@ struct PermissionSheet: View {
                     .font(.system(size: 11.5))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button(LocalizedStringKey(showAdvanced ? "Hide help" : "PureMac not in the list?")) {
+                Button(LocalizedStringKey(showAdvanced ? "Hide help" : "Cachora not in the list?")) {
                     withAnimation(.easeInOut(duration: 0.25)) { showAdvanced.toggle() }
                 }
                 .buttonStyle(.link)
@@ -185,7 +185,7 @@ struct PermissionSheet: View {
 
     private var advancedPanel: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Try this if PureMac doesn't appear:")
+            Text("Try this if Cachora doesn't appear:")
                 .font(.system(size: 11.5, weight: .semibold))
                 .foregroundStyle(.secondary)
 
@@ -193,7 +193,7 @@ struct PermissionSheet: View {
                 advancedButton(
                     icon: "folder.badge.gearshape",
                     title: "Reveal app",
-                    subtitle: "Drag PureMac.app into the list"
+                    subtitle: "Drag Cachora.app into the list"
                 ) {
                     FullDiskAccessManager.shared.revealAppInFinder()
                 }

@@ -36,7 +36,7 @@ struct MenuBarMonitorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 7) {
-                if let appIcon = NSImage(named: "AppIcon") {
+                if let appIcon = NSApp.applicationIconImage {
                     Image(nsImage: appIcon)
                         .resizable()
                         .frame(width: 18, height: 18)
@@ -53,7 +53,7 @@ struct MenuBarMonitorView: View {
                 MeterRow(title: "Memory", tint: Tint.purple,
                          fraction: monitor.memoryFraction,
                          detail: byteDetail(monitor.memoryUsed, monitor.memoryTotal))
-                MeterRow(title: "Disk", tint: Tint.green,
+                MeterRow(title: "Disk", tint: .secondary,
                          fraction: monitor.diskFraction,
                          detail: byteDetail(monitor.diskUsed, monitor.diskTotal))
             }
@@ -64,7 +64,7 @@ struct MenuBarMonitorView: View {
                 Button {
                     openMainWindow()
                 } label: {
-                    Text("Open PureMac")
+                    Text("Open Cachora")
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
@@ -74,7 +74,7 @@ struct MenuBarMonitorView: View {
                 Button {
                     NSApp.terminate(nil)
                 } label: {
-                    Text("Quit PureMac")
+                    Text("Quit Cachora")
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)

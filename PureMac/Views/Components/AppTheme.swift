@@ -56,14 +56,13 @@ final class ThemeManager: ObservableObject {
 }
 
 enum Tint {
-    static let accent = Color(red: 0.08, green: 0.58, blue: 0.54)
-    static let teal = accent
+    static var accent: Color { Color(nsColor: .controlAccentColor) }
     static let blue = Color(red: 0.18, green: 0.48, blue: 0.88)
     static let green = Color(red: 0.18, green: 0.65, blue: 0.43)
     static let orange = Color(red: 0.92, green: 0.52, blue: 0.16)
     static let purple = Color(red: 0.49, green: 0.38, blue: 0.72)
     static let pink = Color(red: 0.82, green: 0.34, blue: 0.49)
-    static let cyan = Color(red: 0.19, green: 0.63, blue: 0.72)
+    static let cyan = Color(nsColor: .systemCyan)
     static let red = Color(red: 0.85, green: 0.25, blue: 0.24)
     static let yellow = Color(red: 0.87, green: 0.68, blue: 0.16)
 }
@@ -93,10 +92,6 @@ enum TintGradient {
         startPoint: .top,
         endPoint: .bottom
     )
-
-    static func of(_ color: Color) -> LinearGradient {
-        LinearGradient(colors: [color, color.opacity(0.82)], startPoint: .top, endPoint: .bottom)
-    }
 }
 
 struct IconTile: View {
@@ -108,13 +103,16 @@ struct IconTile: View {
     var vivid = false
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
         ZStack {
-            RoundedRectangle(cornerRadius: corner, style: .continuous)
-                .fill(vivid ? tint : tint.opacity(glow ? 0.20 : 0.12))
-                .overlay {
-                    RoundedRectangle(cornerRadius: corner, style: .continuous)
-                        .strokeBorder(tint.opacity(vivid ? 0.22 : 0.16), lineWidth: 0.5)
-                }
+            if vivid {
+                shape.fill(tint)
+            } else {
+                shape.fill(.regularMaterial)
+                    .overlay {
+                        shape.strokeBorder(Color.primary.opacity(glow ? 0.16 : 0.08), lineWidth: 0.5)
+                    }
+            }
             Image(systemName: systemName)
                 .font(.system(size: size * 0.48, weight: .semibold))
                 .foregroundStyle(vivid ? Color.white : tint)
@@ -224,7 +222,7 @@ struct StatusChip: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .foregroundStyle(tint)
-        .background(RoundedRectangle(cornerRadius: 5).fill(tint.opacity(0.09)))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 5))
     }
 }
 
@@ -266,6 +264,19 @@ struct PressableScale: ViewModifier {
 extension View {
     func pressable(hoverScale: CGFloat = 1.006, lift: Bool = false) -> some View {
         modifier(PressableScale(hoverScale: hoverScale, lift: lift))
+    }
+
+    @ViewBuilder
+    func accentButtonStyle() -> some View {
+        #if canImport(SwiftUI, _version: 7.0)
+        if #available(macOS 26.0, *) {
+            buttonStyle(.glass(.regular.tint(Tint.accent.opacity(0.20))))
+        } else {
+            buttonStyle(.borderedProminent).tint(Tint.accent)
+        }
+        #else
+        buttonStyle(.borderedProminent).tint(Tint.accent)
+        #endif
     }
 }
 

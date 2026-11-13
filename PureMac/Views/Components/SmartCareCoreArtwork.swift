@@ -15,7 +15,7 @@ struct SmartCareCoreArtwork: View {
             case .idle: return Tint.cyan
             case .scanning: return Tint.blue
             case .review, .cleaning: return Tint.orange
-            case .success: return Tint.green
+            case .success: return Tint.accent
             }
         }
 
@@ -241,7 +241,7 @@ struct SmartCareCoreArtwork: View {
         } else if phase == .review {
             edgeGlow(color: Tint.orange, opacity: 0.14)
         } else if phase == .success {
-            edgeGlow(color: Tint.green, opacity: 0.18)
+            edgeGlow(color: phase.tint, opacity: 0.18)
         }
     }
 

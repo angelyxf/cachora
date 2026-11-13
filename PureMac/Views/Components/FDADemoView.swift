@@ -23,7 +23,7 @@ struct FDADemoView: View {
     private var rows: [DemoRow] {
         [
             DemoRow(name: "Finder", systemImage: "macwindow", granted: true),
-            DemoRow(name: "PureMac", systemImage: "sparkles",
+            DemoRow(name: LocalizedStringKey(ProductIdentity.name), systemImage: "sparkles",
                     granted: frame == .toggleOn || frame == .granted || frame == .hold,
                     isPureMac: true),
             DemoRow(name: "Terminal", systemImage: "terminal", granted: true),
@@ -185,7 +185,7 @@ private struct ToggleSwitch: View {
     var body: some View {
         ZStack(alignment: isOn ? .trailing : .leading) {
             Capsule()
-                .fill(isOn ? Tint.green : Color.secondary.opacity(0.30))
+                .fill(isOn ? Tint.accent : Color.secondary.opacity(0.30))
             Circle()
                 .fill(Color.white)
                 .shadow(color: .black.opacity(0.15), radius: 1.5, y: 0.5)
