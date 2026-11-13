@@ -23,6 +23,11 @@ struct PerformanceView: View {
     @State private var deletingSnapshotID: String?
     @State private var deletionError: String?
     private let inspector = PerformanceInspector()
+    let allowsSnapshotRemoval: Bool
+
+    init(allowsSnapshotRemoval: Bool = true) {
+        self.allowsSnapshotRemoval = allowsSnapshotRemoval
+    }
 
     var body: some View {
         ZStack {
@@ -345,7 +350,8 @@ struct PerformanceView: View {
                             SnapshotRow(
                                 snapshot: snapshot,
                                 isDeleting: deletingSnapshotID == snapshot.id,
-                                deletionInProgress: deletingSnapshotID != nil
+                                deletionInProgress: deletingSnapshotID != nil,
+                                allowsRemoval: allowsSnapshotRemoval
                             ) {
                                 snapshotPendingDeletion = snapshot
                             }
@@ -418,7 +424,7 @@ struct PerformanceView: View {
 
     @MainActor
     private func delete(_ snapshot: PerformanceSnapshot) async {
-        guard deletingSnapshotID == nil else { return }
+        guard allowsSnapshotRemoval, deletingSnapshotID == nil else { return }
         deletingSnapshotID = snapshot.id
         defer { deletingSnapshotID = nil }
         do {
@@ -543,6 +549,7 @@ private struct SnapshotRow: View {
     let snapshot: PerformanceSnapshot
     let isDeleting: Bool
     let deletionInProgress: Bool
+    let allowsRemoval: Bool
     let onDelete: () -> Void
 
     var body: some View {
@@ -576,7 +583,7 @@ private struct SnapshotRow: View {
                 Text("Size unavailable")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
-                if PerformanceInspector.deletionTimestamp(for: snapshot) != nil {
+                if allowsRemoval, PerformanceInspector.deletionTimestamp(for: snapshot) != nil {
                     Button(role: .destructive, action: onDelete) {
                         if isDeleting {
                             ProgressView()
