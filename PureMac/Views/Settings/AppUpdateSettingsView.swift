@@ -8,7 +8,7 @@ struct AppUpdateSettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("App updates")
+                    Text("Cachora Updates")
                         .font(.system(size: 13, weight: .semibold))
                     Text("Checks this project's releases on GitHub when requested.")
                         .font(.caption)
@@ -16,7 +16,7 @@ struct AppUpdateSettingsView: View {
                 }
                 Spacer()
                 if updater.isChecking { ProgressView().controlSize(.small) }
-                Button("Check for Updates") { updater.checkForUpdates() }
+                Button("Check for Cachora Updates") { updater.checkForUpdates() }
                     .disabled(updater.isChecking)
                     .accessibilityIdentifier("settings.checkForUpdates")
             }
