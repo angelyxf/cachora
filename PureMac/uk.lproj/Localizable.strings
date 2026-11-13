@@ -5,7 +5,7 @@
 "Dashboard" = "Головна панель";
 "Installed Apps" = "Встановлені програми";
 "Orphaned Files" = "Залишкові файли";
-"PureMac" = "PureMac";
+"Cachora" = "Cachora";
 "Ready to clean" = "Готово до очищення";
 "Limited access" = "Обмежений доступ";
 "Full Disk Access granted" = "Надано повний доступ до диска";
@@ -17,7 +17,7 @@
 "Open System Settings" = "Відкрити Системні параметри";
 "OK" = "Гаразд";
 "Full Disk Access required" = "Потрібен повний доступ до диска";
-"macOS blocks PureMac from cleaning caches and uninstalling apps until you grant access." = "macOS не дозволяє PureMac очищати кеші та видаляти програми, доки ви не надасте доступ.";
+"macOS blocks Cachora from cleaning caches and uninstalling apps until you grant access." = "macOS не дозволяє Cachora очищати кеші та видаляти програми, доки ви не надасте доступ.";
 "Grant Access" = "Надати доступ";
 
 /* Permission Sheet */
@@ -29,19 +29,19 @@
 " and %lld more" = " і ще %lld";
 "Access granted. Retrying…" = "Доступ надано. Повторюємо спробу…";
 "1-tap setup. We'll detect the change automatically." = "Налаштування одним натисканням. Зміну буде виявлено автоматично.";
-"Open Settings & reveal PureMac" = "Відкрити Параметри й показати PureMac";
+"Open Settings & reveal Cachora" = "Відкрити Параметри й показати Cachora";
 "We'll open both windows side-by-side." = "Ми відкриємо обидва вікна поруч.";
-"Turn on PureMac" = "Увімкніть PureMac";
+"Turn on Cachora" = "Увімкніть Cachora";
 "Toggle the row that appears." = "Увімкніть перемикач у рядку, що з’явиться.";
 "Authenticate" = "Підтвердьте особу";
 "Touch ID or password." = "За допомогою Touch ID або пароля.";
 "We auto-retry — no need to come back." = "Ми повторимо спробу автоматично — повертатися не потрібно.";
 "Watching for permission change…" = "Очікуємо зміни дозволу…";
-"PureMac not in the list?" = "PureMac немає у списку?";
+"Cachora not in the list?" = "Cachora немає у списку?";
 "Hide help" = "Сховати довідку";
-"Try this if PureMac doesn't appear:" = "Якщо PureMac не з’являється, спробуйте таке:";
+"Try this if Cachora doesn't appear:" = "Якщо Cachora не з’являється, спробуйте таке:";
 "Reveal app" = "Показати у Finder";
-"Drag PureMac.app into the list" = "Перетягніть PureMac.app до списку";
+"Drag Cachora.app into the list" = "Перетягніть Cachora.app до списку";
 "Reset + reprompt" = "Скинути й запитати знову";
 "Clear stale TCC entry" = "Видалити застарілий запис TCC";
 "+ %lld more" = "+ ще %lld";
@@ -147,6 +147,7 @@
 "1 folder" = "1 папка";
 "1 file" = "1 файл";
 "Scanning for related files..." = "Пошук пов’язаних файлів...";
+"Scan related files" = "Шукати пов’язані файли";
 "Checking %lld locations..." = "Перевіряємо розташування: %lld...";
 "No Related Files" = "Пов’язаних файлів немає";
 "No additional files found for %@." = "Додаткових файлів для %@ не знайдено.";
@@ -172,7 +173,7 @@
 "Back" = "Назад";
 "Next" = "Далі";
 "Get Started" = "Почати";
-"Welcome to PureMac" = "Вітаємо у PureMac";
+"Welcome to Cachora" = "Вітаємо у Cachora";
 "Free, open-source macOS app manager and system cleaner." = "Безкоштовний менеджер програм і засіб очищення системи з відкритим кодом для macOS.";
 "Find junk files across your system" = "Знаходьте непотрібні файли в усій системі";
 "App Uninstaller" = "Засіб видалення програм";
@@ -180,21 +181,21 @@
 "Orphan Finder" = "Пошук залишкових файлів";
 "Find leftovers from deleted apps" = "Знаходьте залишки видалених програм";
 "Full Disk Access" = "Повний доступ до диска";
-"PureMac needs Full Disk Access to uninstall apps, find leftover files, and clean protected caches." = "PureMac потрібен повний доступ до диска, щоб видаляти програми, знаходити залишкові файли й очищати захищені кеші.";
+"Cachora needs Full Disk Access to uninstall apps, find leftover files, and clean protected caches." = "Cachora потрібен повний доступ до диска, щоб видаляти програми, знаходити залишкові файли й очищати захищені кеші.";
 "We'll guide you through the next steps." = "Ми допоможемо виконати наступні кроки.";
 "In System Settings, do this:" = "У Системних параметрах виконайте такі дії:";
 "Privacy & Security → Full Disk Access" = "Приватність і безпека → Повний доступ до диска";
-"Find **PureMac** and turn the toggle on" = "Знайдіть **PureMac** та увімкніть перемикач";
+"Find **Cachora** and turn the toggle on" = "Знайдіть **Cachora** та увімкніть перемикач";
 "Authenticate with Touch ID or your password" = "Підтвердьте особу за допомогою Touch ID або пароля";
 "Reopen Settings" = "Знову відкрити Системні параметри";
-"PureMac isn't in the list — reveal it" = "PureMac немає у списку — покажіть програму";
+"Cachora isn't in the list — reveal it" = "Cachora немає у списку — покажіть програму";
 "Reset permissions and re-prompt" = "Скинути дозволи й запитати знову";
 "Hide diagnostics" = "Сховати діагностику";
 "Show diagnostics" = "Показати діагностику";
 "Trouble?" = "Виникли труднощі?";
 "Waiting for permission…" = "Очікуємо дозволу…";
 "Permission granted." = "Дозвіл надано.";
-"PureMac can now manage protected files." = "Тепер PureMac може керувати захищеними файлами.";
+"Cachora can now manage protected files." = "Тепер Cachora може керувати захищеними файлами.";
 "You're Ready" = "Усе готово";
 "%lld/%lld protected locations accessible" = "Доступні захищені розташування: %lld/%lld";
 "Some features will be limited without Full Disk Access. You can grant it later in Settings." = "Без повного доступу до диска деякі функції будуть обмежені. Його можна надати пізніше в налаштуваннях.";
@@ -216,7 +217,7 @@
 "Schedule" = "Розклад";
 "About" = "Про програму";
 "Startup" = "Запуск";
-"Launch PureMac at login" = "Запускати PureMac під час входу";
+"Launch Cachora at login" = "Запускати Cachora під час входу";
 "App Scanning" = "Сканування програм";
 "Search sensitivity" = "Чутливість пошуку";
 "Strict" = "Точний";
@@ -226,7 +227,7 @@
 "Includes partial name matching and bundle ID components." = "Враховує часткові збіги назви та складників ідентифікатора пакета.";
 "Includes company name, entitlements, and team identifier matching." = "Враховує збіги назви компанії, прав доступу та ідентифікатора команди.";
 "Language" = "Мова";
-"Restart PureMac to apply the selected language." = "Перезапустіть PureMac, щоб застосувати вибрану мову.";
+"Restart Cachora to apply the selected language." = "Перезапустіть Cachora, щоб застосувати вибрану мову.";
 "Relaunch Now" = "Перезапустити зараз";
 "System Default" = "Системна мова";
 "English" = "Англійська";
@@ -281,7 +282,7 @@
 
 /* Cleaning category descriptions */
 "Scan everything at once" = "Усе за одне сканування";
-"System caches, logs, and temporary files" = "Системні кеші, журнали й тимчасові файли";
+"Caches, app logs, and temporary files. macOS system logs are skipped." = "Кеші, журнали програм і тимчасові файли. Системні журнали macOS пропускаються.";
 "Application caches and browser data" = "Кеші програм і дані браузерів";
 "Local AI app logs, caches, and optional history" = "Журнали, кеші та, за бажанням, історія локальних програм ШІ";
 "Downloaded mail attachments" = "Викачані вкладення Пошти";
@@ -346,7 +347,7 @@
 "Surfaces files that outlived the apps that created them." = "Знаходить файли, що пережили програми, які їх створили.";
 "One permission, then we're done" = "Один дозвіл — і все готово";
 "Permission granted" = "Дозвіл надано";
-"PureMac can now reach the locations macOS protects by default." = "Тепер PureMac має доступ до розташувань, які macOS захищає за замовчуванням.";
+"Cachora can now reach the locations macOS protects by default." = "Тепер Cachora має доступ до розташувань, які macOS захищає за замовчуванням.";
 "macOS hides certain folders from every app until you say otherwise. We need them to find caches and uninstall cleanly." = "macOS приховує певні папки від усіх програм, доки ви не дозволите доступ. Він потрібен, щоб знаходити кеші та повністю видаляти програми.";
 "All set — moving you to the next step." = "Усе готово — переходимо до наступного кроку.";
 "Reveal app again" = "Знову показати програму";
@@ -400,12 +401,12 @@
 /* v2.8.3: menu-bar system monitor */
 "System Monitor" = "Моніторинг системи";
 "Show system monitor in menu bar" = "Показувати стан системи у смузі меню";
-"Live CPU, memory, and disk meters in the menu bar. PureMac keeps running in the background while this is on." = "Показники процесора, пам’яті й диска в реальному часі у смузі меню. Поки цю функцію ввімкнено, PureMac працює у фоновому режимі.";
+"Live CPU, memory, and disk meters in the menu bar. Cachora keeps running in the background while this is on." = "Показники процесора, пам’яті й диска в реальному часі у смузі меню. Поки цю функцію ввімкнено, Cachora працює у фоновому режимі.";
 "CPU" = "ЦП";
 "Memory" = "Пам’ять";
 "Disk" = "Диск";
-"Open PureMac" = "Відкрити PureMac";
-"Quit PureMac" = "Завершити PureMac";
+"Open Cachora" = "Відкрити Cachora";
+"Quit Cachora" = "Завершити Cachora";
 
 /* Finder Service */
 "Select an application (.app) to uninstall." = "Виберіть програму (.app) для видалення.";
@@ -439,11 +440,11 @@
 "Make room.\nKeep control." = "Make room.\nKeep control.";
 "No cleanup run yet" = "No cleanup run yet";
 "No known leftovers" = "No known leftovers";
-"No removable junk was found in the areas PureMac checked." = "No removable junk was found in the areas PureMac checked.";
+"No removable junk was found in the areas Cachora checked." = "No removable junk was found in the areas Cachora checked.";
 "One scan checks every cleanup tool and prepares a plan for your review." = "One scan checks every cleanup tool and prepares a plan for your review.";
 "Private" = "Private";
-"PureMac builds a reviewable cleanup plan on your Mac. Nothing is removed until you approve it." = "PureMac builds a reviewable cleanup plan on your Mac. Nothing is removed until you approve it.";
-"PureMac is checking your Mac without removing anything." = "PureMac is checking your Mac without removing anything.";
+"Cachora builds a reviewable cleanup plan on your Mac. Nothing is removed until you approve it." = "Cachora builds a reviewable cleanup plan on your Mac. Nothing is removed until you approve it.";
+"Cachora is checking your Mac without removing anything." = "Cachora is checking your Mac without removing anything.";
 "Ready" = "Ready";
 "Ready for review" = "Ready for review";
 "Ready to reclaim" = "Ready to reclaim";
@@ -469,7 +470,7 @@
 "\nAnd %lld more." = "\nAnd %lld more.";
 "%@ %@ to %@" = "%@ %@ to %@";
 "%@ available" = "%@ available";
-"%@ could not be removed because PureMac does not have Full Disk Access. Grant Full Disk Access in System Settings, then try again." = "%@ could not be removed because PureMac does not have Full Disk Access. Grant Full Disk Access in System Settings, then try again.";
+"%@ could not be removed because Cachora does not have Full Disk Access. Grant Full Disk Access in System Settings, then try again." = "%@ could not be removed because Cachora does not have Full Disk Access. Grant Full Disk Access in System Settings, then try again.";
 "%@ did not finish within the allowed time." = "%@ did not finish within the allowed time.";
 "%@ exited with status %d%@" = "%@ exited with status %d%@";
 "%@ files inspected" = "%@ files inspected";
@@ -530,7 +531,7 @@
 "At login" = "At login";
 "Available" = "Available";
 "Available to review" = "Available to review";
-"Browser controls must be reviewed inside each browser. PureMac does not change cookies, history, site permissions, or extensions." = "Browser controls must be reviewed inside each browser. PureMac does not change cookies, history, site permissions, or extensions.";
+"Browser controls must be reviewed inside each browser. Cachora does not change cookies, history, site permissions, or extensions." = "Browser controls must be reviewed inside each browser. Cachora does not change cookies, history, site permissions, or extensions.";
 "Browser privacy" = "Browser privacy";
 "Building visual signatures" = "Building visual signatures";
 "Camera" = "Camera";
@@ -544,7 +545,7 @@
 "Checked %@. Unknown means the setting could not be confirmed." = "Checked %@. Unknown means the setting could not be confirmed.";
 "Checking" = "Checking";
 "Checking Homebrew casks" = "Checking Homebrew casks";
-"Checking asks Homebrew to refresh its package data as needed and contacts Homebrew's configured sources. PureMac only lists cask apps managed by this Homebrew installation." = "Checking asks Homebrew to refresh its package data as needed and contacts Homebrew's configured sources. PureMac only lists cask apps managed by this Homebrew installation.";
+"Checking asks Homebrew to refresh its package data as needed and contacts Homebrew's configured sources. Cachora only lists cask apps managed by this Homebrew installation." = "Checking asks Homebrew to refresh its package data as needed and contacts Homebrew's configured sources. Cachora only lists cask apps managed by this Homebrew installation.";
 "Checking your Mac. Nothing is removed during a scan." = "Checking your Mac. Nothing is removed during a scan.";
 "Choose Another Folder" = "Choose Another Folder";
 "Choose Folder" = "Choose Folder";
@@ -552,7 +553,7 @@
 "Choose a folder of photos" = "Choose a folder of photos";
 "Choose a folder to check for duplicate files" = "Choose a folder to check for duplicate files";
 "Choose a folder to inspect" = "Choose a folder to inspect";
-"Choose a folder. PureMac compares file sizes first, then verifies matching files byte for byte. Nothing is selected or removed automatically." = "Choose a folder. PureMac compares file sizes first, then verifies matching files byte for byte. Nothing is selected or removed automatically.";
+"Choose a folder. Cachora compares file sizes first, then verifies matching files byte for byte. Nothing is selected or removed automatically." = "Choose a folder. Cachora compares file sizes first, then verifies matching files byte for byte. Nothing is selected or removed automatically.";
 "Choose a photo folder" = "Choose a photo folder";
 "Choose where to look" = "Choose where to look";
 "Chrome privacy guide" = "Chrome privacy guide";
@@ -617,9 +618,9 @@
 "Homebrew finished, but 1 selected app still reports an update." = "Homebrew finished, but 1 selected app still reports an update.";
 "Homebrew finished. Check again to verify installed versions." = "Homebrew finished. Check again to verify installed versions.";
 "Homebrew not found" = "Homebrew not found";
-"Homebrew produced more output than PureMac could safely retain." = "Homebrew produced more output than PureMac could safely retain.";
+"Homebrew produced more output than Cachora could safely retain." = "Homebrew produced more output than Cachora could safely retain.";
 "Homebrew returned an invalid cask identifier: %@" = "Homebrew returned an invalid cask identifier: %@";
-"Homebrew returned update information PureMac could not read." = "Homebrew returned update information PureMac could not read.";
+"Homebrew returned update information Cachora could not read." = "Homebrew returned update information Cachora could not read.";
 "Homebrew updated the %lld selected apps." = "Homebrew updated the %lld selected apps.";
 "Homebrew updated the selected app." = "Homebrew updated the selected app.";
 "Homebrew was not found in a standard installation location." = "Homebrew was not found in a standard installation location.";
@@ -633,11 +634,11 @@
 "Inspected %@ files in %@. %@" = "Inspected %@ files in %@. %@";
 "Inspecting startup items and local snapshots…" = "Inspecting startup items and local snapshots…";
 "Inspection stopped" = "Inspection stopped";
-"Install Homebrew to check cask apps here. Apps from the App Store and direct downloads use their own update channels." = "Install Homebrew to check cask apps here. Apps from the App Store and direct downloads use their own update channels.";
+"Homebrew is an optional tool for managing Mac software. Apps installed through Homebrew can be updated here." = "Homebrew — необов’язковий інструмент для керування програмами на Mac. Тут можна оновлювати програми, встановлені через Homebrew.";
 "Installed" = "Installed";
 "Installed %@" = "Installed %@";
 "Keep" = "Keep";
-"Keep PureMac open until this pass finishes." = "Keep PureMac open until this pass finishes.";
+"Keep Cachora open until this pass finishes." = "Keep Cachora open until this pass finishes.";
 "Keep alive" = "Keep alive";
 "Largest first" = "Largest first";
 "Largest items" = "Largest items";
@@ -719,17 +720,17 @@
 "Protected copy" = "Protected copy";
 "Protected system locations and processes are restricted." = "Protected system locations and processes are restricted.";
 "Protection" = "Protection";
-"PureMac builds small local thumbnails, compares their visual structure and color, then groups likely matches for review." = "PureMac builds small local thumbnails, compares their visual structure and color, then groups likely matches for review.";
-"PureMac checks caches, logs, developer data, downloads, and Trash. You review the result before anything is removed." = "PureMac checks caches, logs, developer data, downloads, and Trash. You review the result before anything is removed.";
-"PureMac compares local image thumbnails without changing your photos." = "PureMac compares local image thumbnails without changing your photos.";
-"PureMac could not confirm the local XProtect installation." = "PureMac could not confirm the local XProtect installation.";
-"PureMac could not read this setting." = "PureMac could not read this setting.";
-"PureMac did not find removable items in the selected scan areas." = "PureMac did not find removable items in the selected scan areas.";
-"PureMac measures allocated disk space without changing files." = "PureMac measures allocated disk space without changing files.";
-"PureMac reads the selected folder and does not change anything during a scan." = "PureMac reads the selected folder and does not change anything during a scan.";
-"PureMac will ask Homebrew for available versions when you start the check." = "PureMac will ask Homebrew for available versions when you start the check.";
-"PureMac will move the selected app and related files to the Trash. Items requiring administrator authorization may be permanently deleted. Review the selection before continuing." = "PureMac will move the selected app and related files to the Trash. Items requiring administrator authorization may be permanently deleted. Review the selection before continuing.";
-"PureMac.app" = "PureMac.app";
+"Cachora builds small local thumbnails, compares their visual structure and color, then groups likely matches for review." = "Cachora builds small local thumbnails, compares their visual structure and color, then groups likely matches for review.";
+"Cachora checks caches, logs, developer data, downloads, and Trash. You review the result before anything is removed." = "Cachora checks caches, logs, developer data, downloads, and Trash. You review the result before anything is removed.";
+"Cachora compares local image thumbnails without changing your photos." = "Cachora compares local image thumbnails without changing your photos.";
+"Cachora could not confirm the local XProtect installation." = "Cachora could not confirm the local XProtect installation.";
+"Cachora could not read this setting." = "Cachora could not read this setting.";
+"Cachora did not find removable items in the selected scan areas." = "Cachora did not find removable items in the selected scan areas.";
+"Cachora measures allocated disk space without changing files." = "Cachora measures allocated disk space without changing files.";
+"Cachora reads the selected folder and does not change anything during a scan." = "Cachora reads the selected folder and does not change anything during a scan.";
+"Cachora will ask Homebrew for available versions when you start the check." = "Cachora will ask Homebrew for available versions when you start the check.";
+"Cachora will move the selected app and related files to the Trash. Items requiring administrator authorization may be permanently deleted. Review the selection before continuing." = "Cachora will move the selected app and related files to the Trash. Items requiring administrator authorization may be permanently deleted. Review the selection before continuing.";
+"Cachora.app" = "Cachora.app";
 "Ready for protected locations" = "Ready for protected locations";
 "Refresh disk information" = "Refresh disk information";
 "Refreshing package data and comparing installed versions." = "Refreshing package data and comparing installed versions.";
@@ -821,7 +822,7 @@
 "System daemon" = "System daemon";
 "System update" = "System update";
 "System-wide agent" = "System-wide agent";
-"The analyzed photos did not meet PureMac's visual similarity threshold." = "The analyzed photos did not meet PureMac's visual similarity threshold.";
+"The analyzed photos did not meet Cachora's visual similarity threshold." = "The analyzed photos did not meet Cachora's visual similarity threshold.";
 "The audit reads current settings and does not change your Mac. It is a configuration review, not a malware scan." = "The audit reads current settings and does not change your Mac. It is a configuration review, not a malware scan.";
 "The check timed out." = "The check timed out.";
 "The copy marked Keep is missing or changed: %@" = "The copy marked Keep is missing or changed: %@";
@@ -875,7 +876,7 @@
 /* Additional interface strings. */
 "%lld processes" = "%lld processes";
 "1 process" = "1 process";
-"A PureMac update is available" = "A PureMac update is available";
+"A Cachora update is available" = "A Cachora update is available";
 "About these readings" = "About these readings";
 "App memory shows resident memory, including shared pages. App totals can differ from the summary." = "App memory shows resident memory, including shared pages. App totals can differ from the summary.";
 "Apps and processes" = "Apps and processes";
@@ -889,24 +890,24 @@
 "Collapsed" = "Collapsed";
 "Copy command" = "Copy command";
 "Download (DMG / ZIP)" = "Download (DMG / ZIP)";
-"Download the new app from the release page, quit PureMac, then replace it in Applications." = "Download the new app from the release page, quit PureMac, then replace it in Applications.";
+"Download the new app from the release page, quit Cachora, then replace it in Applications." = "Download the new app from the release page, quit Cachora, then replace it in Applications.";
 "Expanded" = "Expanded";
 "GitHub is receiving too many requests. Please try again later." = "GitHub is receiving too many requests. Please try again later.";
 "Homebrew" = "Homebrew";
-"Keep PureMac up to date" = "Keep PureMac up to date";
-"Last checked: %@" = "Last checked: %@";
+"Keep Cachora up to date" = "Keep Cachora up to date";
+"Last checked: %@" = "Остання перевірка %@";
 "Live updates paused" = "Live updates paused";
 
-"Make PureMac work your way." = "Make PureMac work your way.";
+"Make Cachora work your way." = "Make Cachora work your way.";
 "Measuring apps and processes…" = "Measuring apps and processes…";
 "Memory estimate includes active, wired and compressed memory." = "Memory estimate includes active, wired and compressed memory.";
 "Memory in use" = "Memory in use";
 "No matching apps or processes" = "No matching apps or processes";
-"No stable PureMac app release was found. Try again later." = "No stable PureMac app release was found. Try again later.";
+"No stable Cachora app release was found. Try again later." = "No stable Cachora app release was found. Try again later.";
 "Open release page" = "Open release page";
 "Paused" = "Paused";
 "Process information is unavailable. Try Activity Monitor for more detail." = "Process information is unavailable. Try Activity Monitor for more detail.";
-"PureMac %@ is available" = "PureMac %@ is available";
+"Cachora %@ is available" = "Cachora %@ is available";
 "Restart to apply your language" = "Restart to apply your language";
 "Review Full Disk Access" = "Review Full Disk Access";
 "Review launch at login" = "Review launch at login";
@@ -926,7 +927,7 @@
 "Update method" = "Update method";
 
 "View releases" = "View releases";
-"You're using the latest available version of PureMac." = "You're using the latest available version of PureMac.";
+"You're using the latest available version of Cachora." = "You're using the latest available version of Cachora.";
 
 /* Local scan coverage diagnostics */
 "Scan incomplete" = "Scan incomplete";
@@ -997,7 +998,6 @@
 "Your files stay on this Mac" = "Your files stay on this Mac";
 "Scans and recovery records stay on your Mac. This beta has no analytics, account, payment, or automatic cleanup. Checking for updates contacts GitHub only when you choose it." = "Scans and recovery records stay on your Mac. This beta has no analytics, account, payment, or automatic cleanup. Checking for updates contacts GitHub only when you choose it.";
 "Recovery copies still use disk space. Permanent deletion cannot be undone. Recovery is not a separate backup." = "Recovery copies still use disk space. Permanent deletion cannot be undone. Recovery is not a separate backup.";
-"Built on PureMac (MIT). An independent community project." = "Built on PureMac (MIT). An independent community project.";
 "Upstream source and license" = "Upstream source and license";
 "Project and feedback" = "Project and feedback";
 "App updates" = "App updates";
@@ -1007,3 +1007,185 @@
 "No compatible app release was found. Try again later." = "No compatible app release was found. Try again later.";
 "Version %@ is available" = "Version %@ is available";
 "You're using the latest available version for this channel." = "You're using the latest available version for this channel.";
+
+// Full workspace
+"Open this tool in Cachora" = "Відкрити цей інструмент у Cachora";
+"Use the test files to try scanning, cleanup, and recovery." = "Використовуйте тестові файли, щоб спробувати сканування, очищення й відновлення.";
+"Move the selected app and related files to the Trash." = "Перемістити вибрану програму й пов’язані файли до Смітника.";
+"Scan test files" = "Scan test files";
+"Apple Features" = "Apple Features";
+"Applications & system" = "Applications & system";
+"Review cleanup" = "Review cleanup";
+"Storage, cleanup, and system tools." = "Storage, cleanup, and system tools.";
+"Check %lld categories for caches, logs, and other removable files. Review the results before deleting anything." = "Check %lld categories for caches, logs, and other removable files. Review the results before deleting anything.";
+"Browse folders by size" = "Browse folders by size";
+"Review Siri, image creation, and extras" = "Review Siri, image creation, and extras";
+"Review files with identical contents" = "Review files with identical contents";
+"Remove apps and related files" = "Remove apps and related files";
+"Compare possible matches" = "Compare possible matches";
+"Check Homebrew-managed apps" = "Check Homebrew-managed apps";
+"Check macOS security settings" = "Check macOS security settings";
+"View processes and startup items" = "View processes and startup items";
+
+/* Functional sample workspace and removal review */
+"Selected items move to a Trash folder inside the test workspace." = "Selected items move to a Trash folder inside the test workspace.";
+"Review the paths before moving the selected items to the Trash." = "Review the paths before moving the selected items to the Trash.";
+"Items requiring administrator authorization may be permanently deleted." = "Items requiring administrator authorization may be permanently deleted.";
+"App matching is an estimate. Review the files before moving them." = "App matching is an estimate. Review the files before moving them.";
+"The protected copy in every group stays in place." = "The protected copy in every group stays in place.";
+"Every group keeps at least one photo." = "Every group keeps at least one photo.";
+"Review %lld selected photos" = "Review %lld selected photos";
+"Review selected photos" = "Review selected photos";
+"%lld photos moved to Trash." = "%lld photos moved to Trash.";
+"Compare local photos side by side. You can select individual photos for review and move them to the Trash." = "Compare local photos side by side. You can select individual photos for review and move them to the Trash.";
+"System settings and external guides are available in the regular app." = "System settings and external guides are available in the regular app.";
+"File removal always requires review." = "File removal always requires review.";
+"Information only" = "Information only";
+"This item cannot be moved to Recovery." = "This item cannot be moved to Recovery.";
+
+/* Sample updates and Apple storage */
+"Features" = "Features";
+"Find a feature" = "Find a feature";
+"Review optional features and the storage used by Apple downloads." = "Review optional features and the storage used by Apple downloads.";
+"Apple Intelligence models" = "Apple Intelligence models";
+"Downloaded screen savers" = "Downloaded screen savers";
+"GarageBand support files" = "GarageBand support files";
+"iPhone and iPad backups" = "iPhone and iPad backups";
+"Measure storage" = "Measure storage";
+"Measure again" = "Measure again";
+"Find backups" = "Find backups";
+"Review selected backups" = "Review selected backups";
+"Review complete local backups individually. Selected backups move to the Trash after confirmation." = "Review complete local backups individually. Selected backups move to the Trash after confirmation.";
+"%lld backups moved to the Trash" = "%lld backups moved to the Trash";
+"Backups changed. Measure storage again for current sizes." = "Backups changed. Measure storage again for current sizes.";
+"Unavailable" = "Unavailable";
+
+/* Live system status and possible leftovers */
+"Test mode — file moves use samples; system status is live" = "Test mode — file moves use samples; system status is live";
+"Review possible app leftovers" = "Review possible app leftovers";
+"Check for cache and log files with an app identifier that no installed app claims." = "Check for cache and log files with an app identifier that no installed app claims.";
+"Homebrew available" = "Homebrew available";
+"Open the regular app to check or upgrade Homebrew apps." = "Open the regular app to check or upgrade Homebrew apps.";
+"Measure the generated Apple storage files in this test workspace." = "Measure the generated Apple storage files in this test workspace.";
+
+/* Review-only scheduled scans */
+"Scheduled scans are available in the regular app." = "Scheduled scans are available in the regular app.";
+"Runs while Cachora is open. Review the results before moving any files." = "Runs while Cachora is open. Review the results before moving any files.";
+"Notifications are unavailable. Scheduled scans still run." = "Notifications are unavailable. Scheduled scans still run.";
+"Next run" = "Next run";
+
+/* Application update sources and results */
+"App Store and Homebrew" = "App Store і Homebrew";
+"Cachora Updates" = "Оновлення Cachora";
+"Check for Cachora Updates" = "Перевірити оновлення Cachora";
+"Check Homebrew Apps" = "Перевірити програми Homebrew";
+"Check Homebrew apps again before updating." = "Перед оновленням ще раз перевірте програми Homebrew.";
+"Check Homebrew apps again to see which updates are still available." = "Перевірте програми Homebrew ще раз, щоб дізнатися, які оновлення досі доступні.";
+"Check Homebrew apps again to verify the installed versions." = "Перевірте програми Homebrew ще раз, щоб підтвердити встановлені версії.";
+"Details" = "Подробиці";
+"For apps downloaded from a website, check for updates in the app or on the developer’s website." = "Для програм, завантажених із сайту, шукайте оновлення в програмі або на сайті розробника.";
+"No Homebrew app updates found" = "Оновлень для програм Homebrew не знайдено";
+"Previous results" = "Попередні результати";
+"Update complete" = "Оновлення завершено";
+"Update failed" = "Не вдалося оновити";
+"Update result unverified" = "Результат оновлення не підтверджено";
+"Updates still available" = "Ще є доступні оновлення";
+"Verifying Homebrew updates…" = "Перевірка результатів оновлення Homebrew…";
+
+/* Items skipped during cleanup */
+"Changed or missing items were skipped. Scan again before cleaning." = "Змінені або відсутні об’єкти пропущено. Повторіть сканування перед очищенням.";
+"Protected items or items without move permission were skipped." = "Захищені об’єкти або об’єкти без дозволу на переміщення пропущено.";
+
+/* Recent scan, photo summary, and Apple storage review */
+"Just now" = "Щойно";
+"%lld analyzed · %lld matched" = "%lld analyzed · %lld matched";
+"%@ in matched photos · %lld skipped" = "%@ in matched photos · %lld skipped";
+"The known generative-model folder. macOS manages these assets; this size is not a promise of space you can recover." = "The known generative-model folder. macOS manages these assets; this size is not a promise of space you can recover.";
+"Downloaded Apple aerial assets. Change the selected wallpaper or screen saver in System Settings." = "Downloaded Apple aerial assets. Change the selected wallpaper or screen saver in System Settings.";
+"Sound libraries and support files may be shared with music apps. Review Music Creation in Storage settings." = "Sound libraries and support files may be shared with music apps. Review Music Creation in Storage settings.";
+"Loops used by GarageBand and Logic Pro. Review Music Creation in Storage settings before removing sounds." = "Loops used by GarageBand and Logic Pro. Review Music Creation in Storage settings before removing sounds.";
+"Local device backups can contain your only restore copy. Review individual backups below or use Finder's Manage Backups." = "Local device backups can contain your only restore copy. Review individual backups below or use Finder's Manage Backups.";
+"Measure known locations without deleting files. These sizes are not a recoverable-space estimate." = "Measure known locations without deleting files. These sizes are not a recoverable-space estimate.";
+"Measuring Apple storage…" = "Measuring Apple storage…";
+"Storage measurement stopped." = "Storage measurement stopped.";
+"Storage measurement stopped. Previous results are still shown." = "Storage measurement stopped. Previous results are still shown.";
+"Partial measurement: %lld skipped, %lld inaccessible." = "Partial measurement: %lld skipped, %lld inaccessible.";
+"Entry limit reached." = "Entry limit reached.";
+"This location could not be measured. Permissions or protected system storage may prevent access." = "This location could not be measured. Permissions or protected system storage may prevent access.";
+"Checking local backups…" = "Checking local backups…";
+"Checking and moving selected backups to the Trash…" = "Checking and moving selected backups to the Trash…";
+"Backup scan stopped. Scan again before selecting backups." = "Backup scan stopped. Scan again before selecting backups.";
+"Backup removal is available after the current scan or cleanup finishes." = "Backup removal is available after the current scan or cleanup finishes.";
+"%lld backup locations could not be included" = "%lld backup locations could not be included";
+"No complete local device backups were found." = "No complete local device backups were found.";
+"No backups are available to select. Review the scan issues above." = "No backups are available to select. Review the scan issues above.";
+"Modified %@" = "Modified %@";
+"Move this backup to the Trash?" = "Move this backup to the Trash?";
+"Move %lld backups to the Trash?" = "Move %lld backups to the Trash?";
+"Removing your only backup prevents you from restoring that device from this Mac. Disconnect devices and stop any active backups before continuing." = "Removing your only backup prevents you from restoring that device from this Mac. Disconnect devices and stop any active backups before continuing.";
+"Cachora rechecks each selected backup before moving it. Emptying the Trash is a separate action." = "Cachora rechecks each selected backup before moving it. Emptying the Trash is a separate action.";
+"Wait for the current scan or cleanup to finish before moving backups." = "Wait for the current scan or cleanup to finish before moving backups.";
+"Finishing backup removal. New scans are available when it stops." = "Finishing backup removal. New scans are available when it stops.";
+"Moving backups to the Trash does not free disk space. Emptying the Trash is a separate action." = "Moving backups to the Trash does not free disk space. Emptying the Trash is a separate action.";
+"Backup removal was cancelled. Remaining backups were left in place." = "Backup removal was cancelled. Remaining backups were left in place.";
+"Dismiss report" = "Dismiss report";
+
+/* Duplicate file review and bulk selection */
+"Suggested action" = "Suggested action";
+"Keep one file in each group. Cachora suggests the earliest modified file, using the path to break ties." = "Keep one file in each group. Cachora suggests the earliest modified file, using the path to break ties.";
+"Review and restore instructions" = "Review and restore instructions";
+"Open Details to check the full paths and modification dates. Use Keep This File to change the file you want to keep." = "Open Details to check the full paths and modification dates. Use Keep This File to change the file you want to keep.";
+"Select extra copies, then review the move and keep lists before confirming." = "Select extra copies, then review the move and keep lists before confirming.";
+"To restore a moved copy, move it from the Trash back to its original folder." = "To restore a moved copy, move it from the Trash back to its original folder.";
+"Keep %@" = "Keep %@";
+"Suggested to keep" = "Suggested to keep";
+"Keep This File" = "Keep This File";
+"Keep one file in each group" = "Keep one file in each group";
+"Selected size: %@" = "Selected size: %@";
+"Select All Extra Copies" = "Select All Extra Copies";
+"Review Selected Copies" = "Review Selected Copies";
+"%lld files totaling %@ were moved." = "%lld files totaling %@ were moved.";
+"Review the move results" = "Review the move results";
+"Copies to move" = "Copies to move";
+"Copies to keep" = "Copies to keep";
+
+/* Duplicate result filters and reversible ignore rules */
+"Ignored groups (%lld)" = "Ignored groups (%lld)";
+"%lld ignore records expired. Scan results have been checked again." = "%lld ignore records expired. Scan results have been checked again.";
+"All duplicate groups are ignored" = "All duplicate groups are ignored";
+"Change the filters or undo an ignored group to review more files." = "Change the filters or undo an ignored group to review more files.";
+"Reset Filters" = "Reset Filters";
+"Search file names or paths" = "Search file names or paths";
+"File type" = "File type";
+"Reviewable Size" = "Reviewable Size";
+"Modification Date" = "Modification Date";
+"Ascending" = "Ascending";
+"Descending" = "Descending";
+"Only matching extra copies can be selected. Changing filters deselects hidden files; the kept copy stays visible." = "Only matching extra copies can be selected. Changing filters deselects hidden files; the kept copy stays visible.";
+"All File Types" = "All File Types";
+"Images" = "Images";
+"Videos" = "Videos";
+"Audio" = "Audio";
+"Archives" = "Archives";
+"Ignored duplicate groups" = "Ignored duplicate groups";
+"Ignored groups stay hidden in future scans of the same folder. Changed files or group members will be reviewed again after rescanning." = "Ignored groups stay hidden in future scans of the same folder. Changed files or group members will be reviewed again after rescanning.";
+"No ignored groups" = "No ignored groups";
+"%lld ignored files" = "%lld ignored files";
+"Undo Ignore" = "Undo Ignore";
+"Undo makes the group available in the current results or the next scan. It does not select or move files." = "Undo makes the group available in the current results or the next scan. It does not select or move files.";
+"Could not load ignored groups. All scan results remain available." = "Could not load ignored groups. All scan results remain available.";
+"Could not save ignored groups. Your ignore settings were not changed." = "Could not save ignored groups. Your ignore settings were not changed.";
+"Ignore This Group" = "Ignore This Group";
+"%lld nonmatching files hidden" = "%lld nonmatching files hidden";
+"Kept copy shown for reference; outside the filter" = "Kept copy shown for reference; outside the filter";
+"%lld matching extra copies · Keep one per group" = "%lld matching extra copies · Keep one per group";
+"Select All Filtered Copies" = "Select All Filtered Copies";
+"Changed groups are available for review, but the expired ignore records could not be saved." = "Changed groups are available for review, but the expired ignore records could not be saved.";
+"Choose a folder. Cachora compares file sizes and SHA-256 content hashes. Nothing is selected or removed automatically." = "Choose a folder. Cachora compares file sizes and SHA-256 content hashes. Nothing is selected or removed automatically.";
+
+/* Partial duplicate move results */
+"Stop moving" = "Stop moving";
+"Move stopped" = "Move stopped";
+"Remaining files were left in place. Moved copies can be restored from the Trash." = "Remaining files were left in place. Moved copies can be restored from the Trash.";
+
+"Purgeable space is managed by macOS and is not included in cleanup." = "Purgeable space is managed by macOS and is not included in cleanup.";
