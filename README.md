@@ -1,70 +1,103 @@
 # Cachora · 轻盘
 
-<img src="PureMac/Assets.xcassets/BetaIcon.appiconset/beta_128@2x.png" width="96" alt="Cachora recovery loop icon">
+<img src="PureMac/Assets.xcassets/BetaIcon.appiconset/beta_128@2x.png" width="96" alt="Cachora 图标">
+
+看清磁盘占用，复核要处理的文件，再清理或恢复。为 Mac 提供原生界面的空间分析、应用管理与可恢复清理工具。
 
 A native Mac toolkit for storage, applications, and recoverable cleanup.
 
-轻盘提供磁盘总览、空间分析和应用管理。文件清理先复核路径，再把选中的可恢复文件移入本地恢复区。
+[![Cachora checks](https://github.com/angelyxf/cachora/actions/workflows/build.yml/badge.svg)](https://github.com/angelyxf/cachora/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**0.1.0 · 本地稳定构建 · MIT**
+**当前版本：0.1.0 · Build 18。源码已开放，安装包暂不公开。** 这是面向本机使用验证的稳定构建，尚未完成自己的 Apple Developer ID 签名与公证；“稳定构建”不代表所有 Mac 配置均已验证。详见 [验证与发行状态](docs/RELEASE-STATUS.md)。
 
-本项目基于 [PureMac](https://github.com/momenbasel/PureMac) 独立开发，保留原 MIT 许可与作者信息。当前版本为本地稳定构建，尚无经过我们自己 Apple Developer ID 签名、公证的公开安装包。
+[源码编译](docs/BUILDING.md) · [功能截图](#使用截图) · [反馈问题](https://github.com/angelyxf/cachora/issues) · [隐私说明](PRIVACY.md)
 
-## 这个版本能做什么
+## 功能一览
 
-- 总览、系统安全检查与性能监测、Apple 功能、应用卸载与更新、卸载残留、空间分析、重复文件和相似照片。
-- 手动扫描系统垃圾、应用缓存、邮件附件、废纸篓、大文件与旧文件，以及 AI、Xcode、Node、Homebrew 和 Docker 清理项目。
-- 显示实际路径、隐藏文件占用，以及无法读取的位置；读失败不当作零占用。
-- 复核选择后移入恢复区，记录原位置和操作状态。
-- 恢复时拒绝覆盖同名文件，保留双方并允许处理冲突后重试。
-- 永久删除恢复副本前再次确认。
+| 功能 | 可以做什么 |
+| --- | --- |
+| 空间总览与分析 | 查看磁盘容量、目录占用、大文件和旧文件；统计包含隐藏文件，无法读取的位置会提示，不能读不等于零占用。 |
+| 缓存与文件清理 | 手动扫描系统垃圾、用户缓存、邮件文件、废纸篓，以及 AI、Xcode、Node、Homebrew、Docker 相关项目；区分可处理项与仅供查看项，复核实际路径后再操作。 |
+| 清理恢复 | 可恢复项目先移入本地恢复区，保留原位置与操作记录；恢复遇到同名文件时拒绝覆盖，处理冲突后可以重试。 |
+| 重复文件 | 比对文件内容，按名称或路径搜索、按类型筛选，支持三种双向排序；提供保留建议，也可指定保留项。筛选后全选只勾选命中的多余副本，每组至少留一份。 |
+| 忽略与撤销 | 重复文件可“忽略此组”，在已忽略列表撤销；再次扫描相同目录时，文件或组成员变化会让忽略失效，重新纳入复核。 |
+| 应用管理 | 查看应用及关联缓存、偏好设置、日志，复核后卸载；支持访达右键服务进入卸载复核，也可单独扫描疑似应用残留。 |
+| 应用更新 | 提供 App Store 更新入口；已安装 Homebrew 时，可检查它管理的软件。Homebrew 是可选的命令行软件管理器，普通扫描和清理不依赖它。设置中的“检查轻盘更新”只检查 Cachora 自身。 |
+| 相似照片与 Apple 功能 | 查看疑似相似图片，人工复核后处理并保留至少一张；查看 Apple 资源占用，处理本地设备备份前再次确认。相似不等于内容完全相同。 |
+| 系统状态与扫描计划 | 查看安全设置与性能状态；可在设置中启用定时扫描，仅在应用运行时执行，移动文件仍需手动复核。 |
 
-恢复副本仍占磁盘空间。移入恢复区不等于已经释放空间；恢复区也不是独立备份。永久删除无法撤销。
+## 先了解文件会去哪里
 
-重复文件支持按文件名或路径搜索、类型筛选和三种双向排序。筛选后「全选筛选结果」只选中命中的多余副本，每组至少保留一份。「忽略此组」可在已忽略列表撤销；再次扫描同一文件夹时，文件或组成员变化会使忽略失效。
+1. **扫描**：选择需要检查的类别或文件夹，查看结果与读取失败提示。
+2. **复核**：勾选要处理的项目，确认文件路径、保留项和目标位置；正在变化或无法核验的文件会跳过并报告原因。
+3. **处理与恢复**：普通可恢复清理进入左侧“清理恢复”；应用卸载、应用残留、重复文件和相似照片确认后移入系统废纸篓，应从访达废纸篓恢复。
 
-文件清理会区分可恢复项目和仅供查看的项目。应用卸载、应用残留、重复文件及相似照片会先列出所选路径，确认后移入系统废纸篓。重复文件和相似照片每组至少留一份。可在设置中开启定时扫描，轻盘运行时按计划扫描，移动文件前需要手动复核。
+**移入恢复区不等于释放空间。** 保留的副本仍占磁盘；恢复区是本地暂存位置，不是独立备份。永久删除副本需要再次确认，且不能通过 Cachora 撤销。移入废纸篓失败时保留原文件，不改用管理员永久删除。
 
-## 本地使用
+## 使用截图
 
-在仓库根目录构建应用。
+以下是 **Build 18 的真实界面**，只使用临时目录中生成的测试文件。为隔离真实数据，拍摄时启用了样本模式，所以窗口显示“测试版”和测试横幅；这不是另一个产品版本。截图没有真实文档、个人目录或已安装应用列表，显示的容量仅代表样本。
+
+### 重复文件：筛选后批量选择，保留一份
+
+搜索“示例”并筛选文稿后，点击“全选筛选结果”。两组文件只选中 3 份多余副本，保留项不会被勾选；可以展开分组核对路径，再进入复核。
+
+![重复文件：搜索、类型筛选、排序与筛选后全选，保留项保持未选中](docs/screenshots/build18-duplicates.jpg)
+
+### 清理前：确认范围和去向
+
+只选择生成的 `01-Round-trip` 缓存，确认页列出临时目录中的实际路径，并注明“移入恢复区：可恢复”。
+
+![清理前复核：一个测试缓存目录、实际路径与移入恢复区的确认按钮](docs/screenshots/build18-cleanup-review.jpg)
+
+### 清理后：从记录恢复到原位置
+
+“清理恢复”保留原路径、大小、时间与状态，并明确提示副本仍占空间。拍摄后已执行恢复，核对全部 40 个样本文件的内容、权限与扩展属性，均与操作前一致。
+
+![清理恢复：测试缓存的原始路径、可恢复状态与恢复按钮](docs/screenshots/build18-recovery.jpg)
+
+## 从源码开始
+
+当前推荐 **Apple Silicon Mac + Python 3 + Apple 开发工具（Swift 与 macOS SDK）**。不需要 Homebrew、付费开发者账号或 Python 第三方依赖。脚本生成 arm64 应用，编译目标为 macOS 13；Intel 与其他系统的实际验证范围见 [发布状态](docs/RELEASE-STATUS.md)。
 
 ```sh
+git clone https://github.com/angelyxf/cachora.git
+cd cachora
 python3 scripts/build-local-app.py
+open build-local/Cachora.app
 ```
 
-打开 `build-local/Cachora.app`。需要验证文件操作时，可另外生成独立样本。具体步骤见 [构建与发布说明](docs/BETA-RELEASE.md)。
+默认构建会先运行 92 项 Swift 样本检查，再编译应用、生成图标并验证本地临时签名。产物在项目的 `build-local/`，不会自动安装到 `/Applications`。直接打开普通应用会读取本机状态；**只想验证文件操作时，请先按 [隔离样本演示](docs/BUILDING.md#只用测试文件体验) 打开样本应用。**
 
-本地构建是临时签名开发包，不能标为 Apple 已公证。脚本目前生成 Apple Silicon 版本；编译目标是 macOS 13，其他系统和芯片的支持以实际验证为准。
+环境检查、完整命令、日志位置和常见编译问题见 [源码编译与样本验证](docs/BUILDING.md)。
 
 ## 开发与验证
 
 ```sh
 python3 scripts/build-local-app.py --tests-only
+python3 -m unittest discover -s scripts/tests -v
 python3 scripts/prepare-beta.py --check
-python3 scripts/sign-notarize.py --preflight
 ```
 
-完整 Xcode 环境也可使用 `project.yml` 或现有 `PureMac.xcodeproj`。模块名与历史目录仍保留 PureMac，以方便审查来源和合并上游。
+92 项 Swift 检查覆盖扫描、恢复、完整源码集成、更新与重复文件规则；另有 23 项 Python 检查覆盖打包和公证状态控制，Apple 服务响应使用模拟。完整上游 XCTest 未全部执行。GitHub Actions 会从源码构建并运行这些检查，最新结果可从页面顶部状态链接查看。
 
-本轮验证结果与尚未完成的发行条件见 [发布状态](docs/RELEASE-STATUS.md)。详细流程见 [构建与发布说明](docs/BETA-RELEASE.md)。不要求关闭 Gatekeeper 或扩大系统权限来体验源码。
+本地临时签名不等于 Developer ID 签名或 Apple 公证。安装包的后续准备流程见 [构建与发布说明](docs/BETA-RELEASE.md)，当前没有公开的 Build 18 DMG / ZIP 下载。
 
-## 隐私和反馈
+## 隐私与反馈
 
-扫描结果、日志与恢复记录留在本机。手动检查轻盘更新会访问本项目的 GitHub Releases API。应用更新工具在用户启动检查时使用 Homebrew 的软件源。[隐私说明](PRIVACY.md)
+文件名、内容、扫描结果与恢复记录留在本机。手动检查轻盘更新会请求本仓库的 GitHub Releases API；Homebrew 检查或更新会使用其配置的软件源。详见 [隐私说明](PRIVACY.md)。
 
-遇到问题请到 [Issues](https://github.com/angelyxf/cachora/issues) 提交系统版本、芯片类型和使用测试样本复现的步骤。截图和日志请先遮盖私人路径，不上传实际文档、密钥或恢复副本。
+请在 [Issues](https://github.com/angelyxf/cachora/issues) 提供系统版本、芯片类型、Build 号、预期行为，以及能用测试文件复现的步骤。上传前遮盖截图和日志中的私人路径，不上传实际文档、密钥或恢复副本。
 
-## 后续方向
-
-先验证基础流程的安全性和易用性。自定义规则、空间变化报告和更便捷的批量管理属于后续候选，尚未实现；当前没有收费入口，也没有订阅或终身更新承诺。
+当前没有收费入口。自定义规则、空间变化报告等属于后续候选，尚未实现，也没有订阅或终身更新承诺。
 
 ## 来源与许可
 
-固定源码基线：PureMac `b86aa61948f78ae9f17b42b624b20357a3ca9ffe`。保留 [MIT 许可](LICENSE)，新增独立图标和界面说明；详见 [第三方说明](THIRD-PARTY-NOTICES.md)。本项目不代表原作者或 Apple。
+本项目基于 [PureMac](https://github.com/momenbasel/PureMac) 独立开发，固定源码基线为 `b86aa61948f78ae9f17b42b624b20357a3ca9ffe`。保留 [MIT 许可](LICENSE) 和原作者信息，使用独立名称与图标；详见 [第三方说明](THIRD-PARTY-NOTICES.md)。源码模块与历史目录仍保留 PureMac，便于审查来源。本项目不代表原作者或 Apple。
 
 ## English
 
-Cachora is an independent, MIT-licensed PureMac derivative with a storage overview, application tools, file comparison, and manual cleanup. Review the paths before moving eligible files into local Recovery. Retained copies still occupy disk space. App uninstallation and file comparison tools use the system Trash.
+Cachora is an independent, MIT-licensed PureMac derivative for storage analysis, application management, duplicate review, and recoverable cleanup. Review paths before moving eligible files into local Recovery; retained copies still occupy disk space. App uninstallation and file comparison tools use the system Trash.
 
-The regular build is `build-local/Cachora.app`. A separate fixture app is available for development checks. See the release status for Apple signing, notarization, and tested configurations.
+Build 18 source is available. Installers are not publicly distributed, and Developer ID signing and Apple notarization are pending. The build script targets Apple Silicon. All screenshots use generated fixtures, not personal files. See [build instructions](docs/BUILDING.md) and [tested configurations](docs/RELEASE-STATUS.md).
