@@ -38,14 +38,18 @@ struct AppUpdatesView: View {
     @StateObject private var updater: ApplicationUpdater
     @State private var showingUpgradeConfirmation = false
     @State private var confirmationSelection: [ManagedAppUpdate] = []
+    private let permitsPackageOperations: Bool
 
     init() {
-        _updater = StateObject(wrappedValue: ApplicationUpdater())
+        self.init(updater: ApplicationUpdater())
     }
 
-    init(updater: ApplicationUpdater) {
+    init(updater: ApplicationUpdater, permitsPackageOperations: Bool = true) {
         _updater = StateObject(wrappedValue: updater)
+        self.permitsPackageOperations = permitsPackageOperations
     }
+
+    private var canCheckHomebrew: Bool { permitsPackageOperations && updater.isHomebrewAvailable }
 
     var body: some View {
         ZStack {
@@ -55,14 +59,20 @@ struct AppUpdatesView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     header
-                    sourceCard
-
-                    if let status = updater.statusMessage {
-                        statusCard(status)
+                    if canCheckHomebrew {
+                        sourceCard
+                        homebrewResults
                     }
-
-                    content
-                    unmanagedAppsCard
+                    appStoreCard
+                    sourceNote("For apps downloaded from a website, check for updates in the app or on the developer’s website.", systemImage: "globe")
+                    if !canCheckHomebrew {
+                        sourceNote(
+                            updater.isHomebrewAvailable
+                                ? "Open the regular app to check or upgrade Homebrew apps."
+                                : "Homebrew is an optional tool for managing Mac software. Apps installed through Homebrew can be updated here.",
+                            systemImage: "shippingbox"
+                        )
+                    }
                 }
                 .padding(24)
                 .frame(maxWidth: 920, alignment: .leading)
@@ -71,17 +81,19 @@ struct AppUpdatesView: View {
         }
         .navigationTitle("App Updates")
         .toolbar {
-            ToolbarItem {
-                Button {
-                    Task { await updater.checkForUpdates() }
-                } label: {
-                    Label(updater.hasChecked ? "Check Again" : "Check for Updates", systemImage: "arrow.clockwise")
+            if canCheckHomebrew {
+                ToolbarItem {
+                    Button {
+                        Task { await updater.checkForUpdates() }
+                    } label: {
+                        Label("Check Homebrew Apps", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(updater.isBusy)
                 }
-                .disabled(updater.isBusy || !updater.isHomebrewAvailable)
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if !updater.updates.isEmpty {
+            if canCheckHomebrew && updater.hasCurrentResults && !updater.updates.isEmpty {
                 upgradeBar
             }
         }
@@ -102,117 +114,94 @@ struct AppUpdatesView: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 16) {
             IconTile(systemName: "arrow.down.app.fill", tint: Tint.accent, size: 48, corner: 13, vivid: true)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("App Updates")
-                    .font(.system(size: 25, weight: .bold))
-                Text("Review and update apps installed as Homebrew casks.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            if let date = updater.lastCheckedAt {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("Last checked")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                    Text(date, style: .relative)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
-            }
+                .accessibilityHidden(true)
+            Text("App Updates")
+                .font(.system(size: 25, weight: .bold))
+                .accessibilityAddTraits(.isHeader)
         }
     }
 
     private var sourceCard: some View {
         CardSurface(padding: 16, elevation: .flat, tint: Tint.accent) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(spacing: 12) {
                 IconTile(systemName: "shippingbox.fill", tint: Tint.accent, size: 32, corner: 9)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Updates from Homebrew")
                         .font(.system(size: 14, weight: .semibold))
-                    Text("Checking asks Homebrew to refresh its package data as needed and contacts Homebrew's configured sources. PureMac only lists cask apps managed by this Homebrew installation.")
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Review and update apps installed as Homebrew casks.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                    if let date = updater.lastCheckedAt {
+                        Text(String(format: String(localized: "Last checked: %@"), date.formatted(date: .abbreviated, time: .shortened)))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                Spacer()
+                Button("Check Homebrew Apps") {
+                    Task { await updater.checkForUpdates() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Tint.accent)
+                .disabled(updater.isBusy)
+                .help("Checking asks Homebrew to refresh its package data as needed and contacts Homebrew's configured sources. Cachora only lists cask apps managed by this Homebrew installation.")
             }
         }
     }
 
     @ViewBuilder
-    private var content: some View {
-        if !updater.isHomebrewAvailable {
-            stateCard(
-                title: "Homebrew not found",
-                message: "Install Homebrew to check cask apps here. Apps from the App Store and direct downloads use their own update channels.",
-                systemImage: "shippingbox",
-                tint: Tint.orange
+    private var homebrewResults: some View {
+        switch updater.phase {
+        case .checking:
+            progressCard("Checking Homebrew casks")
+        case .upgrading:
+            progressCard("Updating…")
+        case .verifying:
+            progressCard("Verifying Homebrew updates…")
+        case .checkFailed(let detail):
+            statusCard(
+                "Couldn't check for updates",
+                message: String(localized: "Check Homebrew apps again to see which updates are still available."),
+                systemImage: "exclamationmark.triangle.fill", tint: Tint.red, detail: detail
             )
-        } else if updater.isChecking {
-            CardSurface(padding: 28, elevation: .standard) {
-                HStack(spacing: 14) {
-                    ProgressView()
-                        .controlSize(.small)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Checking Homebrew casks")
-                            .font(.headline)
-                        Text("Refreshing package data and comparing installed versions.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-            }
-        } else if let error = updater.errorMessage {
-            CardSurface(padding: 22, elevation: .standard, tint: Tint.red) {
-                HStack(alignment: .top, spacing: 14) {
-                    IconTile(systemName: "exclamationmark.triangle.fill", tint: Tint.red, size: 36, corner: 10)
-                    VStack(alignment: .leading, spacing: 7) {
-                        Text("Couldn't check for updates")
-                            .font(.headline)
-                        Text(error)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                        Button("Try Again") {
-                            Task { await updater.checkForUpdates() }
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(updater.isBusy)
-                    }
-                    Spacer()
-                }
-            }
-        } else if updater.hasChecked && updater.updates.isEmpty {
-            stateCard(
-                title: "Homebrew apps are up to date",
-                message: "No updates are currently available for the cask apps Homebrew manages.",
-                systemImage: "checkmark.circle.fill",
-                tint: Tint.green
+        case .upgradeFailed(let detail):
+            statusCard(
+                "Update failed",
+                message: String(localized: "Check Homebrew apps again to see which updates are still available."),
+                systemImage: "exclamationmark.triangle.fill", tint: Tint.red, detail: detail
             )
-        } else if updater.updates.isEmpty {
-            CardSurface(padding: 28, elevation: .standard) {
-                VStack(spacing: 14) {
-                    IconTile(systemName: "arrow.triangle.2.circlepath", tint: Tint.accent, size: 48, corner: 13)
-                    Text("Check installed cask apps")
-                        .font(.title3.weight(.semibold))
-                    Text("PureMac will ask Homebrew for available versions when you start the check.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                    Button("Check for Updates") {
-                        Task { await updater.checkForUpdates() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Tint.accent)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-            }
-        } else {
+        case .needsVerification(let detail):
+            statusCard(
+                "Update result unverified",
+                message: String(localized: "Check Homebrew apps again to verify the installed versions."),
+                systemImage: "questionmark.circle.fill", tint: Tint.orange, detail: detail
+            )
+        case .updatesRemaining(let count):
+            statusCard(
+                "Updates still available",
+                message: count == 1
+                    ? String(localized: "Homebrew finished, but 1 selected app still reports an update.")
+                    : String(localized: "Homebrew finished, but \(count) selected apps still report updates."),
+                systemImage: "exclamationmark.circle.fill", tint: Tint.orange
+            )
+        case .completed(let count):
+            statusCard(
+                "Update complete",
+                message: count == 1
+                    ? String(localized: "Homebrew updated the selected app.")
+                    : String(localized: "Homebrew updated the \(count) selected apps."),
+                systemImage: "checkmark.circle.fill", tint: Tint.green
+            )
+        case .ready where updater.updates.isEmpty:
+            statusCard("No Homebrew app updates found", systemImage: "list.bullet", tint: .secondary)
+        case .idle, .ready:
+            EmptyView()
+        }
+
+        if !updater.isBusy && !updater.updates.isEmpty {
             updatesCard
         }
     }
@@ -222,9 +211,11 @@ struct AppUpdatesView: View {
             VStack(spacing: 0) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(updateCountTitle)
+                        Text(updater.hasCurrentResults ? updateCountTitle : String(localized: "Previous results"))
                             .font(.headline)
-                        Text("Select the apps Homebrew should upgrade.")
+                        Text(updater.hasCurrentResults
+                             ? String(localized: "Select the apps Homebrew should upgrade.")
+                             : String(localized: "Check Homebrew apps again before updating."))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -261,7 +252,7 @@ struct AppUpdatesView: View {
             ))
             .labelsHidden()
             .toggleStyle(AnimatedCheckboxStyle(tint: Tint.accent))
-            .disabled(update.isPinned || updater.isBusy)
+            .disabled(update.isPinned || !updater.hasCurrentResults)
             .accessibilityLabel("Select \(displayName)")
 
             appIcon(app?.icon ?? presentation?.icon, isPinned: update.isPinned)
@@ -333,50 +324,68 @@ struct AppUpdatesView: View {
         return String(localized: "\(update.token)  ·  \(installed)")
     }
 
-    private var unmanagedAppsCard: some View {
-        CardSurface(padding: 16, elevation: .flat) {
+    private var appStoreCard: some View {
+        CardSurface(padding: 16, elevation: canCheckHomebrew ? .flat : .standard) {
             HStack(spacing: 12) {
                 IconTile(systemName: "storefront.fill", tint: Tint.blue, size: 32, corner: 9)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Apps outside Homebrew")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text("Open the App Store updates page. Direct-download apps may provide their own updater.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
+                    .accessibilityHidden(true)
+                Text(verbatim: "App Store")
+                    .font(.headline)
                 Spacer()
-                Button("Open App Store Updates") {
-                    updater.openAppStoreUpdates()
+                if canCheckHomebrew {
+                    appStoreButton.buttonStyle(.bordered)
+                } else {
+                    appStoreButton.buttonStyle(.borderedProminent).tint(Tint.accent)
                 }
-                .buttonStyle(.bordered)
             }
         }
     }
 
-    private func stateCard(title: LocalizedStringKey, message: LocalizedStringKey, systemImage: String, tint: Color) -> some View {
-        CardSurface(padding: 28, elevation: .standard, tint: tint) {
-            VStack(spacing: 12) {
-                IconTile(systemName: systemImage, tint: tint, size: 48, corner: 13)
-                Text(title)
-                    .font(.title3.weight(.semibold))
-                Text(message)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 520)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+    private var appStoreButton: some View {
+        Button("Open App Store Updates") {
+            updater.openAppStoreUpdates()
         }
     }
 
-    private func statusCard(_ status: String) -> some View {
-        CardSurface(padding: 14, elevation: .flat, tint: Tint.green) {
-            HStack(spacing: 10) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Tint.green)
-                Text(status)
-                    .font(.callout.weight(.medium))
+    private func sourceNote(_ text: LocalizedStringKey, systemImage: String) -> some View {
+        Label(text, systemImage: systemImage)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 4)
+    }
+
+    private func progressCard(_ title: LocalizedStringKey) -> some View {
+        CardSurface(padding: 16, elevation: .flat) {
+            HStack(spacing: 12) {
+                ProgressView().controlSize(.small)
+                Text(title).font(.headline)
+                Spacer()
+            }
+        }
+    }
+
+    private func statusCard(
+        _ title: LocalizedStringKey, message: String? = nil, systemImage: String, tint: Color, detail: String? = nil
+    ) -> some View {
+        CardSurface(padding: 16, elevation: .flat) {
+            HStack(alignment: .top, spacing: 12) {
+                IconTile(systemName: systemImage, tint: tint, size: 28, corner: 8)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.headline)
+                    if let message {
+                        Text(verbatim: message).font(.callout).foregroundStyle(.secondary)
+                    }
+                    if let detail, !detail.isEmpty {
+                        DisclosureGroup("Details") {
+                            Text(verbatim: String(detail.prefix(2_000)))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                    }
+                }
                 Spacer()
             }
         }
@@ -389,24 +398,14 @@ struct AppUpdatesView: View {
                 .foregroundStyle(updater.selectedCount == 0 ? Color.secondary : Color.primary)
             Spacer()
             Button {
-                confirmationSelection = updater.updates.filter {
-                    updater.selectedTokens.contains($0.token) && !$0.isPinned
-                }
+                confirmationSelection = updater.selectedUpdates
                 showingUpgradeConfirmation = true
             } label: {
-                if updater.isUpgrading {
-                    HStack(spacing: 8) {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text("Updating…")
-                    }
-                } else {
-                    Text(upgradeConfirmationLabel(count: updater.selectedCount))
-                }
+                Text(upgradeConfirmationLabel(count: updater.selectedCount))
             }
             .buttonStyle(.borderedProminent)
             .tint(Tint.accent)
-            .disabled(updater.selectedCount == 0 || updater.isBusy)
+            .disabled(!updater.canUpgradeSelection)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 12)

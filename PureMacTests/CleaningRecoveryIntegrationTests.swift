@@ -64,7 +64,8 @@ enum CleaningRecoveryChecks {
                 let stale = item(bad); try Data("CHANGED".utf8).write(to: bad)
                 let engine = CleaningEngine(homeDirectory: f.home, recoveryStore: f.store(), fixtureBoundary: f.home)
                 let result = await engine.cleanItems([item(good), stale, item(f.outside)]) { _ in }
-                try require(result.itemsCleaned == 1 && result.errors.count == 2, "Mixed outcome was not reported correctly")
+                try require(result.itemsCleaned == 1 && result.errors.count == 1 && result.changedPaths == [bad.path],
+                            "Mixed outcome was not reported correctly")
                 try require(FileManager.default.fileExists(atPath: bad.path), "Failed source changed")
                 try require(result.requiresAdmin.isEmpty, "Recovery requested administrator deletion")
             }
@@ -95,8 +96,109 @@ enum CleaningRecoveryChecks {
                 try Data("MODIFIED-NESTED-DATA".utf8).write(to: child)
                 let engine = CleaningEngine(homeDirectory: f.home, recoveryStore: f.store(), fixtureBoundary: f.home)
                 let result = await engine.cleanItems([reviewed]) { _ in }
-                try require(result.itemsCleaned == 0 && !result.errors.isEmpty, "Changed nested file was moved")
+                try require(result.itemsCleaned == 0 && result.errors.isEmpty && result.changedPaths == [folder.path],
+                            "Changed nested file was moved or reported as an unexpected error")
                 try require(FileManager.default.fileExists(atPath: child.path), "Changed nested file vanished")
+            }
+        }),
+        ("system-managed log paths stay out of cleanup and older records stay valid", {
+            try await RecoveryChecks.fixture("system-log-policy") { f in
+                let sample = try f.file("sample.log")
+                guard let snapshot = RecoverySnapshot.capture(sample.path) else {
+                    throw RecoveryChecks.Failure(description: "Sample snapshot missing")
+                }
+                let scanRoots = RecoveryPathPolicy.systemJunkRoots(home: f.home.path)
+                try require(!scanRoots.contains(where: RecoveryPathPolicy.isSystemLogPath), "A macOS log root was scanned")
+                for root in ["/private/var/log", "/var/log"] {
+                    for name in ["asl", "wifi.log", "system.log", "install.log"] {
+                        let path = root + "/" + name
+                        let candidate = CleanableItem(name: name, path: path, size: 4096, category: .systemJunk,
+                                                      isSelected: true, lastModified: nil, recoverySnapshot: snapshot)
+                        try require(!RecoveryPathPolicy.accepts(candidate, home: f.home), "A macOS log could still be selected")
+                        try require(RecoveryPathPolicy.accepts(path: (path as NSString).standardizingPath,
+                            category: CleaningCategory.systemJunk.rawValue, snapshot: snapshot, home: f.home),
+                            "A legacy recovery record was invalidated")
+                    }
+                }
+                try require(!RecoveryPathPolicy.isSystemLogPath("/var/log-other/sample.log"), "A sibling path was blocked")
+            }
+        }),
+        ("readable system junk without move permission is omitted and stale selection is skipped", {
+            try await RecoveryChecks.fixture("system-junk-permissions") { f in
+                let logs = f.home.appendingPathComponent("Library/Logs", isDirectory: true)
+                let source = logs.appendingPathComponent("install.log")
+                let bytes = Data(repeating: 51, count: 4096)
+                let fm = FileManager.default
+                try fm.createDirectory(at: logs, withIntermediateDirectories: true)
+                try bytes.write(to: source)
+                let scanner = ScanEngine(homeDirectory: f.home, samplesOnly: true)
+                let scan = await scanner.scanCategory(.systemJunk)
+                guard let selected = scan.items.first, selected.path == source.path else {
+                    throw RecoveryChecks.Failure(description: "A movable application log was not scanned")
+                }
+                try fm.setAttributes([.posixPermissions: 0o500], ofItemAtPath: logs.path)
+                defer { try? fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: logs.path) }
+                let restricted = await scanner.scanCategory(.systemJunk)
+                try require(restricted.items.isEmpty && restricted.totalSize == 0 && fm.isReadableFile(atPath: source.path),
+                            "Read-only log was included in cleanable space")
+                let env = environment(f)
+                let engine = CleaningEngine(homeDirectory: env.home, recoveryStore: env.makeRecoveryStore(), fixtureBoundary: env.home)
+                let result = await engine.cleanItems([selected]) { _ in }
+                try require(result.moveDeniedPaths == [source.path] && result.errors.isEmpty && result.itemsCleaned == 0,
+                            "A stale selection tried to move a protected log")
+                try require(try Data(contentsOf: source) == bytes, "Permission-limited sample changed")
+            }
+        }),
+        ("a permission denial during the actual move keeps the reviewed file", {
+            try await RecoveryChecks.fixture("late-move-denial") { f in
+                let source = try f.file("late-denial.bin")
+                let bytes = try Data(contentsOf: source)
+                let store = f.store { checkpoint in
+                    if checkpoint == .beforePrepare {
+                        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: f.cache.path)
+                    }
+                }
+                defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: f.cache.path) }
+                let engine = CleaningEngine(homeDirectory: f.home, recoveryStore: store, fixtureBoundary: f.home)
+                let result = await engine.cleanItems([item(source)]) { _ in }
+                try require(result.moveDeniedPaths == [source.path] && result.errors.isEmpty && result.recoveryEntries.isEmpty,
+                            "An actual rename denial was reported as a cleanup error or a successful move")
+                try require(try Data(contentsOf: source) == bytes, "Denied move altered its source")
+            }
+        }),
+        ("a changing log is removed from the old review and the stable log can be restored", {
+            try await RecoveryChecks.fixture("system-junk-changing-log") { f in
+                let logs = f.home.appendingPathComponent("Library/Logs", isDirectory: true)
+                let changed = logs.appendingPathComponent("wifi.log")
+                let stable = logs.appendingPathComponent("archived-app.log")
+                let bytes = Data(repeating: 37, count: 4096)
+                try FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+                try bytes.write(to: changed)
+                try bytes.write(to: stable)
+                let state = AppState(performStartupTasks: false, cleanupEnvironment: environment(f))
+                state.scanSingleCategory(.systemJunk)
+                try await waitUntilIdle(state)
+                try require(state.selectedCountInCategory(.systemJunk) == 2, "Sample logs were not selected for review")
+                let changedBytes = bytes + Data("appended while under review".utf8)
+                try changedBytes.write(to: changed)
+
+                state.cleanCategory(.systemJunk)
+                try await waitUntilIdle(state)
+                try require(state.lastRecoveryMovedCount == 1 && state.lastCleanupSkipNotice != nil && state.cleanError == nil,
+                            "A changed log interrupted the batch or had no skip notice")
+                try require(state.selectedCountInCategory(.systemJunk) == 0 && state.totalJunkSize == 0,
+                            "Old scan results were still actionable")
+                try require(try Data(contentsOf: changed) == changedBytes, "The live sample log changed during cleanup")
+                guard let entry = state.recoveryCenter.entries.first, entry.name == stable.lastPathComponent else {
+                    throw RecoveryChecks.Failure(description: "The stable log was not recorded in Recovery")
+                }
+                await state.recoveryCenter.restore(entry.id)
+                try require(try Data(contentsOf: stable) == bytes, "The stable log did not restore to its original contents")
+
+                state.scanSingleCategory(.systemJunk)
+                try await waitUntilIdle(state)
+                try require(state.lastCleanupSkipNotice == nil && state.selectedCountInCategory(.systemJunk) == 2,
+                            "A new scan did not replace the old review")
             }
         }),
         ("AppState clean category then restore preserves selection and diagnostics", {

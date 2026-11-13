@@ -1,13 +1,14 @@
-# Cachora 0.1.0-beta.1
+# Cachora 0.1.0 · Build 18
 
-First free source beta of 轻盘 · Cachora, based on PureMac under MIT.
+轻盘 · Cachora 的首个本机稳定构建，基于 PureMac 的 MIT 源码。
 
-- Manual review of application, Node and Homebrew caches.
-- Move selected files to local Recovery, inspect persistent records, and restore without overwriting a same-name item.
-- Include hidden files in measurement and show unreadable locations as incomplete.
-- Refuse changed items, unsafe paths and unsupported operations.
-- Separate product identity, original icon, manual update channel and privacy notice.
+- 保留完整图形界面、访达卸载复核、缓存清理与原位恢复。
+- 重复文件支持搜索、类型筛选、排序、命中范围全选和保留建议；每组至少保留一份。
+- 可忽略重复组并撤销；重新扫描发现文件或成员变化后，忽略自动失效。
+- 停止移动时保留已完成结果并立即刷新列表，剩余文件留在原处。
+- 稳定版继续要求手动复核。定时扫描只生成结果；卸载和残留移入废纸篓失败时保留原文件，不转为管理员永久删除。
+- 修正概览页残留英文，统一版本和稳定更新渠道，打包时拒绝旧源码构建和测试应用。
 
-Recovery copies still occupy storage. They are not an independent backup. Permanent deletion cannot be undone.
+缓存清理移入本地恢复区；应用卸载、残留和重复文件移入废纸篓。恢复副本仍占用磁盘空间，恢复不会覆盖同名文件。永久删除无法撤销。
 
-The first distribution is a **source beta**. A local ad-hoc build is not an Apple-notarized consumer download. Check release assets and verification records for any later signed application build. Other upstream tools and the standalone CLI are outside this beta's scope.
+本次交付 Apple Silicon / arm64 的本地 DMG 和 ZIP。使用临时签名，未完成 Developer ID 签名与 Apple 公证，不作为公开发行认证。当前验证范围和限制见 [验证与发行状态](../docs/RELEASE-STATUS.md)。

@@ -8,7 +8,6 @@ actor CleaningEngine {
     private let binaryThinner = BinaryThinner()
     let recoveryStore: RecoveryStore
     private let fixtureBoundary: URL?
-    private let publicBeta: Bool
 
     nonisolated static func recoveryRoots(home: URL) -> [URL] {
         let paths = [
@@ -22,6 +21,7 @@ actor CleaningEngine {
         ]
         return paths.map { home.appendingPathComponent($0) } + [
             URL(fileURLWithPath: "/Library/Caches"), URL(fileURLWithPath: "/Library/Logs"),
+            // Keep the original location valid when loading older recovery records.
             URL(fileURLWithPath: "/private/var/log"), URL(fileURLWithPath: "/private/var/tmp"),
             URL(fileURLWithPath: "/private/tmp"),
         ]
@@ -29,17 +29,17 @@ actor CleaningEngine {
 
     nonisolated static func recoveryRootItems(home: URL) -> [URL] {
         [".npm", ".pnpm-store", ".cache/pip", ".cache/yarn", ".cache/pnpm", ".local/share/pnpm/store",
-         "Library/pnpm/store", ".ollama/logs", ".ollama/history", ".lmstudio/server-logs", ".lmstudio/conversations"]
+         "Library/pnpm/store", ".ollama/logs", ".ollama/history", ".lmstudio/server-logs", ".lmstudio/conversations",
+         "Library/Developer/CoreSimulator/Caches", "Library/Developer/XCTestDevices", "Library/org.swift.swiftpm",
+         ".docker/cli-plugins/.cache", ".docker/buildx/cache", ".orbstack/log"]
             .map { home.appendingPathComponent($0) }
     }
 
     init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
-         recoveryStore: RecoveryStore? = nil, fixtureBoundary: URL? = nil,
-         publicBeta: Bool = ProductIdentity.isPublicBeta) {
+         recoveryStore: RecoveryStore? = nil, fixtureBoundary: URL? = nil) {
         let canonicalHome = XcodeBuildMCPDerivedDataSupport.canonicalHomeDirectory(homeDirectory)
         self.homeDirectory = canonicalHome
         self.fixtureBoundary = fixtureBoundary
-        self.publicBeta = publicBeta
         self.recoveryStore = recoveryStore ?? RecoveryStore(
             root: canonicalHome.appendingPathComponent("Library/Application Support/\(ProductIdentity.storageDirectory)/Recovery"),
             allowedRoots: Self.recoveryRoots(home: canonicalHome), allowedRootItems: Self.recoveryRootItems(home: canonicalHome),
@@ -70,6 +70,9 @@ actor CleaningEngine {
         // "Couldn't clean everything" alert.
         var protectedPaths: Set<String> = []
         var skippedProtected: Int { protectedPaths.count }
+        var changedPaths: Set<String> = []
+        var moveDeniedPaths: Set<String> = []
+        var skippedPaths: Set<String> { protectedPaths.union(changedPaths).union(moveDeniedPaths) }
     }
 
     // MARK: - Public API
@@ -85,7 +88,6 @@ actor CleaningEngine {
             defer { progressHandler(Double(index + 1) / Double(max(ordered.count, 1))) }
             if Task.isCancelled { result.errors.append(RecoveryFailure.cancelled.localizedDescription); break }
             do {
-                guard BetaCapabilities.permits(item.category, enabled: publicBeta) else { throw RecoveryFailure.unsupported }
                 guard !item.isActionItem, item.category != .purgeableSpace,
                       !CleaningCategory.appModifying.contains(item.category) else { throw RecoveryFailure.unsupported }
                 guard !CleanupExclusions.excludes(item.path, paths: exclusions) else {
@@ -93,15 +95,24 @@ actor CleaningEngine {
                 }
                 if let boundary = fixtureBoundary,
                    !RecoveryFileSystem.inside(item.path, boundary.path) { throw RecoveryFailure.unsafePath }
+                if RecoveryPathPolicy.isSystemLogPath(item.path) {
+                    result.protectedPaths.insert(item.path)
+                    continue
+                }
                 guard !hasUnexpectedSymlink(in: item.path) else { throw RecoveryFailure.unsafePath }
                 guard let snapshot = item.recoverySnapshot else { throw RecoveryFailure.unverified }
-                guard acceptsRecoverableItem(item) else { throw RecoveryFailure.unsafePath }
+                guard RecoveryPathPolicy.accepts(item, home: homeDirectory) else { throw RecoveryFailure.unsafePath }
                 if movedDirectories.contains(where: { RecoveryFileSystem.inside(item.path, $0) }) {
                     result.cleanedPaths.insert(item.path)
                     continue
                 }
                 if FileProtection.isProtectedFromDeletion(path: item.path) {
                     result.protectedPaths.insert(item.path)
+                    continue
+                }
+                if item.category == .systemJunk, fileManager.fileExists(atPath: item.path),
+                   !fileManager.isDeletableFile(atPath: item.path) {
+                    result.moveDeniedPaths.insert(item.path)
                     continue
                 }
                 let outcome = try await recoveryStore.stage(path: item.path, name: item.name,
@@ -112,18 +123,16 @@ actor CleaningEngine {
                 result.recoveryEntries.append(outcome.entry)
                 if snapshot.isDirectory { movedDirectories.append(item.path) }
                 if let warning = outcome.warning { result.errors.append(warning) }
+            } catch RecoveryFailure.changed, RecoveryFailure.missing {
+                result.changedPaths.insert(item.path)
+            } catch RecoveryFailure.system("move", let code) where code == EACCES || code == EPERM || code == EROFS {
+                result.moveDeniedPaths.insert(item.path)
             } catch {
                 result.errors.append(item.name + ": " + error.localizedDescription)
             }
         }
         if items.isEmpty { progressHandler(1) }
         return result
-    }
-
-    private func acceptsRecoverableItem(_ item: CleanableItem) -> Bool {
-        guard let snapshot = item.recoverySnapshot else { return false }
-        return RecoveryPathPolicy.accepts(path: item.path, category: item.category.rawValue,
-                                          snapshot: snapshot, home: homeDirectory)
     }
 
     private func cleanItemsPermanently(_ items: [CleanableItem], progressHandler: @Sendable (Double) -> Void) async -> CleaningResult {
@@ -771,13 +780,11 @@ actor CleaningEngine {
             "/Library/Logs",
             "/opt/homebrew/Library/Caches",
             "/usr/local/Homebrew/Library/Caches",
-            "/private/var/log",
             "/private/var/tmp",
             "/private/tmp",
             // /var is a symlink to /private/var, and resolvingSymlinksInPath
             // gives the /var form. Both spellings must be allow-listed or
-            // every system log/tmp deletion silently fails the safety check.
-            "/var/log",
+            // temporary file cleanup can fail the safety check.
             "/var/tmp",
             "/tmp",
         ]

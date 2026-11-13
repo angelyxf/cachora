@@ -48,6 +48,7 @@
 		74175B10C464D245E99BA6DB /* DuplicateFinderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1343918E4CD9C8DA99EFA588 /* DuplicateFinderView.swift */; };
 		75B5F0401D37F2872B1AD85A /* AppListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60E6BC61614B27C065BB18C9 /* AppListView.swift */; };
 		76B132F9C499225D33E0D075 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 424F7B28624C271620E13BBC /* EmptyStateView.swift */; };
+		3769DEDE1F9C4ABBB3E061D7 /* TrashReviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04CD04B8C68A4C228E9F5160 /* TrashReviewSheet.swift */; };
 		7796BCD9AB92D1A644C28AF3 /* StorageExplorer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CF68B6BB9ED70387DF56728 /* StorageExplorer.swift */; };
 		7E881F4DEEE1E4B0FA44BEB2 /* AIAppsCleanupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1104B86347C5671A5FC64BA /* AIAppsCleanupTests.swift */; };
 		826A750D2D7EC14C2AE306A3 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3667D46D8E2004EB4D73835A /* Models.swift */; };
@@ -119,7 +120,6 @@
 		B1EA164A6D63592177E97B98 /* CleaningRecoveryIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E542BDA82A0D95EC860D79 /* CleaningRecoveryIntegrationTests.swift */; };
 		AE453900CAB403317CE40D39 /* RecoveryPathPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B79FF8CB92B750AE969A6645 /* RecoveryPathPolicy.swift */; };
 		2FAF3582FA61AFA7C9DAFAE5 /* ProductIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4DD199575B352B1C54093FB /* ProductIdentity.swift */; };
-		8CA9ED2C7942DC285793C703 /* BetaMainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C026B2380450770108509BA2 /* BetaMainView.swift */; };
 		4093B6C01A4997EDDE45B735 /* ReleaseReadinessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 659C9857D82A5D071CD9333F /* ReleaseReadinessTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -174,6 +174,7 @@
 		40CD4855FB5FA866CAA52C10 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		4144A1B8F1D52D44A6E8E726 /* SimilarPhotoFinderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimilarPhotoFinderTests.swift; sourceTree = "<group>"; };
 		424F7B28624C271620E13BBC /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
+		04CD04B8C68A4C228E9F5160 /* TrashReviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashReviewSheet.swift; sourceTree = "<group>"; };
 		44392E486177839BA978685E /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/ServicesMenu.strings; sourceTree = "<group>"; };
 		46660271CFF167AB0FE7371D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		48F804C73B6DD4F8619B25B5 /* ProcessResourcesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessResourcesView.swift; sourceTree = "<group>"; };
@@ -274,7 +275,6 @@
 		A1E542BDA82A0D95EC860D79 /* CleaningRecoveryIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleaningRecoveryIntegrationTests.swift; sourceTree = "<group>"; };
 		B79FF8CB92B750AE969A6645 /* RecoveryPathPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPathPolicy.swift; sourceTree = "<group>"; };
 		D4DD199575B352B1C54093FB /* ProductIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductIdentity.swift; sourceTree = "<group>"; };
-		C026B2380450770108509BA2 /* BetaMainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BetaMainView.swift; sourceTree = "<group>"; };
 		659C9857D82A5D071CD9333F /* ReleaseReadinessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseReadinessTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -364,7 +364,6 @@
 		45B485C4ACB5B08C1B87917F /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				C026B2380450770108509BA2 /* BetaMainView.swift */,
 				10B0AF194677EAC1D5568785 /* CategoryDetailView.swift */,
 				F661A0F64CF93E482CB1728F /* DashboardView.swift */,
 				9F510F232341EE18F11DC934 /* MainWindow.swift */,
@@ -433,6 +432,7 @@
 				F0599AA604B0D6BA4F957537 /* ConfettiView.swift */,
 				08C60E04A0CA3F227816DB63 /* DashboardCharts.swift */,
 				424F7B28624C271620E13BBC /* EmptyStateView.swift */,
+				04CD04B8C68A4C228E9F5160 /* TrashReviewSheet.swift */,
 				231FF7CBB5F621B66F2AB8A5 /* FDADemoView.swift */,
 				A27DB5A70FA829B6C3ED0AC3 /* MenuBarMonitorView.swift */,
 				069AAE87E3F9EDE5593AD8B3 /* PermissionSheet.swift */,
@@ -648,7 +648,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8CA9ED2C7942DC285793C703 /* BetaMainView.swift in Sources */,
 				2FAF3582FA61AFA7C9DAFAE5 /* ProductIdentity.swift in Sources */,
 				AE453900CAB403317CE40D39 /* RecoveryPathPolicy.swift in Sources */,
 				FE5DB2A1F8FAB82A5E1EC52C /* RecoveryCenterView.swift in Sources */,
@@ -689,6 +688,7 @@
 				D0E6B0AFF83228F121B4DDD3 /* DuplicateFinder.swift in Sources */,
 				74175B10C464D245E99BA6DB /* DuplicateFinderView.swift in Sources */,
 				76B132F9C499225D33E0D075 /* EmptyStateView.swift in Sources */,
+				3769DEDE1F9C4ABBB3E061D7 /* TrashReviewSheet.swift in Sources */,
 				52F11962555C639F0EECADD6 /* FDADemoView.swift in Sources */,
 				25E2304A3FF257F1740E304B /* FileProtection.swift in Sources */,
 				B51E5A95BB49A6C0F5273E21 /* FileSize.swift in Sources */,
@@ -870,7 +870,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 18;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -892,7 +892,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PureMac/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.1.0-beta.1;
+				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = NO;
@@ -995,7 +995,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 18;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -1011,7 +1011,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PureMac/Info.plist;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 0.1.0-beta.1;
+				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = NO;

@@ -17,11 +17,13 @@ final class SpaceExplorerViewModel: ObservableObject {
     @Published private(set) var path: [URL] = []
 
     private let explorer: StorageExplorer
+    private let sampleFolder: URL?
     private var scanTask: Task<Void, Never>?
     private var scanID = UUID()
 
-    init(explorer: StorageExplorer = StorageExplorer()) {
+    init(explorer: StorageExplorer = StorageExplorer(), sampleFolder: URL? = nil) {
         self.explorer = explorer
+        self.sampleFolder = sampleFolder
     }
 
     var currentURL: URL? { path.last }
@@ -32,9 +34,14 @@ final class SpaceExplorerViewModel: ObservableObject {
     }
 
     func chooseFolder() {
+        if let sampleFolder {
+            path = [sampleFolder]
+            startScan(at: sampleFolder)
+            return
+        }
         let panel = NSOpenPanel()
         panel.title = String(localized: "Choose a folder to inspect")
-        panel.message = String(localized: "PureMac measures allocated disk space without changing files.")
+        panel.message = String(localized: "Cachora measures allocated disk space without changing files.")
         panel.prompt = String(localized: "Inspect")
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -94,6 +101,12 @@ final class SpaceExplorerViewModel: ObservableObject {
 
         scanTask = Task { [self, explorer] in
             do {
+                if let sampleFolder {
+                    guard url == sampleFolder || RecoveryFileSystem.inside(url.path, sampleFolder.path) else {
+                        throw RecoveryFailure.unsafePath
+                    }
+                    try RecoveryFileSystem.checkDirectory(url.path)
+                }
                 let result = try await explorer.scan(at: url) { progress in
                     Task { @MainActor [self] in
                         guard self.scanID == id, self.isScanning else { return }
@@ -117,7 +130,13 @@ final class SpaceExplorerViewModel: ObservableObject {
 }
 
 struct SpaceExplorerView: View {
-    @StateObject private var model = SpaceExplorerViewModel()
+    @StateObject private var model: SpaceExplorerViewModel
+    private let sampleFolder: URL?
+
+    init(sampleFolder: URL? = nil) {
+        self.sampleFolder = sampleFolder
+        _model = StateObject(wrappedValue: SpaceExplorerViewModel(sampleFolder: sampleFolder))
+    }
 
     var body: some View {
         VStack(spacing: 14) {
@@ -155,7 +174,8 @@ struct SpaceExplorerView: View {
             Button {
                 model.chooseFolder()
             } label: {
-                Label(model.currentURL == nil ? "Choose Folder" : "Choose Another Folder", systemImage: "folder.badge.plus")
+                Label(sampleFolder != nil ? "Scan test files" : model.currentURL == nil ? "Choose Folder" : "Choose Another Folder",
+                      systemImage: "folder.badge.plus")
             }
             .buttonStyle(.borderedProminent)
             .tint(Tint.accent)

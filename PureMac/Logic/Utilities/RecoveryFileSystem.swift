@@ -41,11 +41,11 @@ struct RecoverySnapshot: Codable, Equatable, Sendable {
         self.treeDigest = treeDigest
     }
 
-    static func capture(_ path: String) -> RecoverySnapshot? {
+    static func capture(_ path: String, includeTree: Bool = true) -> RecoverySnapshot? {
         guard path.hasPrefix("/"), !path.utf8.contains(0),
               let parent = try? RecoveryFileSystem.directory((path as NSString).deletingLastPathComponent) else { return nil }
         defer { close(parent) }
-        return try? RecoveryFileSystem.snapshot(at: parent, name: (path as NSString).lastPathComponent)
+        return try? RecoveryFileSystem.snapshot(at: parent, name: (path as NSString).lastPathComponent, includeTree: includeTree)
     }
 
     var isDirectory: Bool { mode & UInt16(S_IFMT) == UInt16(S_IFDIR) }
@@ -76,18 +76,25 @@ enum RecoveryFileSystem {
         path.hasPrefix(root.hasSuffix("/") ? root : root + "/")
     }
 
-    static func directory(_ path: String, create: Bool = false) throws -> Int32 {
+    static func checkDirectory(_ path: String) throws {
+        close(try directory(path))
+    }
+
+    static func directoryWalkPath(_ path: String) throws -> String {
         let path = try normalized(path)
-        var walkPath = path
         // Foundation commonly returns /var for the system-managed /private/var
         // alias. Accept only these verified OS aliases, never user-made links.
         for (alias, target) in [("/var", "/private/var"), ("/tmp", "/private/tmp")] {
             if path == alias || inside(path, alias) {
                 guard try canonicalExisting(alias) == target else { throw RecoveryFailure.unsafePath }
-                walkPath = target + path.dropFirst(alias.count)
-                break
+                return target + path.dropFirst(alias.count)
             }
         }
+        return path
+    }
+
+    static func directory(_ path: String, create: Bool = false) throws -> Int32 {
+        let walkPath = try directoryWalkPath(path)
         var fd = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC)
         guard fd >= 0 else { throw RecoveryFailure.system("open", errno) }
         do {

@@ -41,7 +41,7 @@ final class AppInfoFetcher {
 
     private init() {}
 
-    func fetchInstalledApps() -> [InstalledApp] {
+    func fetchInstalledApps(sampleHome: URL? = nil) -> [InstalledApp] {
         var apps: [InstalledApp] = []
         var seenBundleIDs: Set<String> = []
 
@@ -54,7 +54,9 @@ final class AppInfoFetcher {
         // the bound is kept generous (6) so a vendor that nests one or two
         // directories deeper is still found, while the multi-gigabyte asset
         // trees below that are not walked.
-        let searchRoots: [(path: String, maxDepth: Int)] = [
+        let searchRoots: [(path: String, maxDepth: Int)] = sampleHome.map {
+            [($0.appendingPathComponent("Applications").path, 2)]
+        } ?? [
             ("/Applications", 8),
             ("\(home)/Applications", 8),
             ("/System/Applications", 8),
@@ -62,13 +64,18 @@ final class AppInfoFetcher {
         ]
 
         for (searchPath, maxDepth) in searchRoots {
+            if sampleHome != nil, (try? RecoveryFileSystem.checkDirectory(searchPath)) == nil { continue }
             guard let enumerator = fileManager.enumerator(
                 at: URL(fileURLWithPath: searchPath),
-                includingPropertiesForKeys: [.isDirectoryKey],
+                includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
                 options: [.skipsHiddenFiles, .skipsPackageDescendants]
             ) else { continue }
 
             for case let url as URL in enumerator {
+                if sampleHome != nil, (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != false {
+                    enumerator.skipDescendants()
+                    continue
+                }
                 guard url.pathExtension == "app" else {
                     // Stop descending once past the depth bound so a deep data
                     // tree (e.g. a game's assets) doesn't get fully walked.

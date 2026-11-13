@@ -34,7 +34,27 @@ enum OrphanSafetyPolicy {
         "/Library/CloudStorage",
     ]
 
-    static func isSafeCandidate(_ url: URL) -> Bool {
+    static func sampleRoots(home: URL) -> [String] {
+        ["Library/Caches", "Library/Logs"].map { home.appendingPathComponent($0).path }
+    }
+
+    static func candidateBundleIdentifier(for url: URL) -> String? {
+        let artifactSuffixes: Set<String> = ["log", "savedstate", "cache", "plist"]
+        let identifier = artifactSuffixes.contains(url.pathExtension.lowercased())
+            ? url.deletingPathExtension().lastPathComponent : url.lastPathComponent
+        let labels = identifier.split(separator: ".", omittingEmptySubsequences: false)
+        let letters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        let identifierCharacters = letters.union(CharacterSet(charactersIn: "0123456789-"))
+        guard labels.count >= 3,
+              labels[0].count >= 2,
+              labels[0].unicodeScalars.allSatisfy(letters.contains),
+              labels.allSatisfy({ label in
+                  !label.isEmpty && label.unicodeScalars.allSatisfy(identifierCharacters.contains)
+              }) else { return nil }
+        return identifier
+    }
+
+    static func isSafeCandidate(_ url: URL, sampleHome: URL? = nil) -> Bool {
         let path = normalizedPath(url)
         let lowerPath = path.lowercased()
 
@@ -50,12 +70,15 @@ enum OrphanSafetyPolicy {
         // Require the match to land STRICTLY inside the allowed root, not at a
         // sibling like /tmpfoo. Trailing "/" prevents hasPrefix from matching
         // sibling directories whose names merely start with the root name.
-        guard allowedRoots.contains(where: { root in
-            let rootWithSlash = root.lowercased() + "/"
+        let roots = sampleHome.map { sampleRoots(home: $0) } ?? allowedRoots
+        guard roots.contains(where: { root in
+            let rootPath = sampleHome == nil ? root : normalizedPath(URL(fileURLWithPath: root))
+            let rootWithSlash = rootPath.lowercased() + "/"
             return lowerPath.hasPrefix(rootWithSlash)
         }) else {
             return false
         }
+        if sampleHome != nil && RecoverySnapshot.capture(url.path) == nil { return false }
 
         if blockedFragments.contains(where: { lowerPath.contains($0.lowercased()) }) {
             return false

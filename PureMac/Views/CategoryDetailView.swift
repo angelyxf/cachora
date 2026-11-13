@@ -1,11 +1,6 @@
 import SwiftUI
 
 struct CategoryDetailView: View {
-    private struct CleanupSelection: Identifiable {
-        let id = UUID()
-        let items: [CleanableItem]
-    }
-
     @EnvironmentObject var appState: AppState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let category: CleaningCategory
@@ -24,6 +19,12 @@ struct CategoryDetailView: View {
             if appState.lastRecoveryMovedCount > 0 {
                 Label("Files were moved to Recovery. Disk space has not been released yet.", systemImage: "clock.arrow.circlepath")
                     .font(.callout).foregroundStyle(.secondary)
+                    .padding(.horizontal, 28).padding(.bottom, 12)
+            }
+            if let notice = appState.lastCleanupSkipNotice {
+                Label(notice, systemImage: "info.circle")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 28).padding(.bottom, 12)
             }
             if let result, result.isPartial {
@@ -47,7 +48,7 @@ struct CategoryDetailView: View {
                 filters
                 Divider()
                 if visibleItems.isEmpty {
-                    EmptyStateView("No matching files", systemImage: "line.3.horizontal.decrease.circle", description: "Try another name, size, or date range.", action: { filter = CleanupReviewFilter() }, actionLabel: "Clear filters", tint: Tint.teal)
+                    EmptyStateView("No matching files", systemImage: "line.3.horizontal.decrease.circle", description: "Try another name, size, or date range.", action: { filter = CleanupReviewFilter() }, actionLabel: "Clear filters", tint: Tint.accent)
                 } else {
                     List(visibleItems) { item in
                         CleanupFileRow(item: item)
@@ -60,17 +61,25 @@ struct CategoryDetailView: View {
             } else if result?.isPartial == true {
                 EmptyStateView("Some locations were not checked", systemImage: "folder.badge.questionmark", description: "No cleanup items found in the readable locations. Review the skipped locations above.", tint: Tint.orange)
             } else if result != nil {
-                EmptyStateView("No files found", systemImage: "checkmark.circle", description: appState.hasFullDiskAccess ? "There are no cleanup items in this category." : "Some protected locations are unavailable. Full Disk Access allows a more complete scan.", tint: Tint.teal)
+                EmptyStateView("No files found", systemImage: "checkmark.circle",
+                               description: appState.hasFullDiskAccess || appState.cleanupEnvironment.isFixture
+                                    ? "There are no cleanup items in this category."
+                                    : "Some protected locations are unavailable. Full Disk Access allows a more complete scan.",
+                               tint: Tint.accent)
             } else if !appState.scanState.isActive {
-                EmptyStateView("See what is taking up space", systemImage: category.icon, description: "Scan first, then review the exact files before removing anything.", action: { appState.scanSingleCategory(category) }, actionLabel: "Scan this category", tint: Tint.teal)
+                EmptyStateView("See what is taking up space", systemImage: category.icon, description: "Scan first, then review the exact files before removing anything.", action: { appState.scanSingleCategory(category) }, actionLabel: "Scan this category", tint: Tint.accent)
             } else {
                 Spacer()
             }
         }
         .navigationTitle(Text(LocalizedStringKey(category.rawValue)))
         .sheet(item: $pendingReview) { selection in
-            removalReview(items: selection.items)
+            CleanupReviewSheet(items: selection.items) { itemIDs in
+                appState.cleanCategory(category, itemIDs: itemIDs)
+            }
         }
+        .onChange(of: pendingReview != nil) { appState.showCleanConfirmation = $0 }
+        .onDisappear { if pendingReview != nil { appState.showCleanConfirmation = false } }
         .onChange(of: category) { _ in
             filter = CleanupReviewFilter()
             pendingReview = nil
@@ -79,7 +88,7 @@ struct CategoryDetailView: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: 16) {
-            IconTile(systemName: category.icon, tint: Tint.teal, size: 48, corner: 12)
+            IconTile(systemName: category.icon, tint: Tint.accent, size: 48, corner: 12)
             VStack(alignment: .leading, spacing: 7) {
                 Text(LocalizedStringKey(category.rawValue))
                     .font(.system(size: 26, weight: .semibold))
@@ -113,7 +122,9 @@ struct CategoryDetailView: View {
     }
 
     private var filters: some View {
-        VStack(spacing: 12) {
+        let selectable = visibleItems.filter(appState.canRecover)
+        let allSelected = !selectable.isEmpty && selectable.allSatisfy(appState.isItemSelected)
+        return VStack(spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField("Find a file or path", text: $filter.query)
@@ -150,10 +161,10 @@ struct CategoryDetailView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button(visibleItems.allSatisfy(appState.isItemSelected) ? "Deselect visible" : "Select visible") {
-                    appState.setSelection(!visibleItems.allSatisfy(appState.isItemSelected), for: visibleItems)
+                Button(allSelected ? "Deselect visible" : "Select visible") {
+                    appState.setSelection(!allSelected, for: selectable)
                 }
-                .disabled(visibleItems.isEmpty || appState.scanState.isActive)
+                .disabled(selectable.isEmpty || appState.scanState.isActive)
                 .buttonStyle(.borderless)
             }
         }
@@ -191,7 +202,7 @@ struct CategoryDetailView: View {
                     .font(.system(size: 13, weight: .semibold))
             }
             .buttonStyle(.borderedProminent)
-            .tint(Tint.teal)
+            .tint(Tint.accent)
             .controlSize(.large)
             .disabled(selectedItems.isEmpty || appState.scanState.isActive)
         }
@@ -200,9 +211,22 @@ struct CategoryDetailView: View {
         .background(.bar)
         .overlay(alignment: .top) { Divider() }
     }
+}
 
-    private func removalReview(items: [CleanableItem]) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+struct CleanupSelection: Identifiable {
+    let id = UUID()
+    let items: [CleanableItem]
+}
+
+struct CleanupReviewSheet: View {
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    let items: [CleanableItem]
+    let confirm: (Set<UUID>) -> Void
+
+    var body: some View {
+        let recoverable = Set(items.filter(appState.canRecover).map(\.id))
+        return VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Review removal")
                     .font(.title2.weight(.semibold))
@@ -235,7 +259,9 @@ struct CategoryDetailView: View {
                                     .textSelection(.enabled)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
-                            Text(removalMethod(item))
+                            Text(recoverable.contains(item.id)
+                                ? "Move to Recovery · Can be restored"
+                                : "Skipped · Recovery is not supported for this action")
                                 .font(.caption.weight(.medium))
                                 .foregroundStyle(.secondary)
                         }
@@ -248,27 +274,19 @@ struct CategoryDetailView: View {
             .frame(minHeight: 160, maxHeight: 300)
             HStack {
                 Spacer()
-                Button("Cancel", role: .cancel) { pendingReview = nil }
+                Button("Cancel", role: .cancel) { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("Move \(items.count) items to Recovery") {
-                    let itemIDs = Set(items.map(\.id))
-                    pendingReview = nil
-                    appState.cleanCategory(category, itemIDs: itemIDs)
+                Button("Move \(recoverable.count) items to Recovery") {
+                    dismiss()
+                    confirm(recoverable)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Tint.red)
-                .disabled(items.isEmpty || appState.scanState.isActive)
+                .disabled(recoverable.isEmpty || appState.scanState.isActive)
             }
         }
         .padding(24)
         .frame(width: 580)
-    }
-
-    private func removalMethod(_ item: CleanableItem) -> String {
-        if item.isActionItem || CleaningCategory.appModifying.contains(item.category) || item.category == .purgeableSpace {
-            return String(localized: "Skipped · Recovery is not supported for this action")
-        }
-        return String(localized: "Move to Recovery · Can be restored")
     }
 }
 
@@ -277,11 +295,13 @@ private struct CleanupFileRow: View {
     let item: CleanableItem
 
     var body: some View {
+        let recoverable = appState.canRecover(item)
         HStack(spacing: 12) {
             Toggle("Select \(item.name)", isOn: appState.itemBinding(for: item))
                 .labelsHidden()
                 .toggleStyle(.checkbox)
-                .tint(Tint.teal)
+                .tint(Tint.accent)
+                .disabled(!recoverable)
                 .accessibilityLabel("Select \(item.name)")
             Image(systemName: item.isActionItem ? "gearshape.2" : "doc")
                 .font(.system(size: 18))
@@ -300,14 +320,15 @@ private struct CleanupFileRow: View {
                     .help(item.path)
             }
             Spacer(minLength: 12)
-            if !item.isSelected {
-                Text("Review")
+            if !recoverable || !item.isSelected {
+                Text(recoverable ? "Review" : "Information only")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
                     .background(Color.primary.opacity(0.05), in: Capsule())
-                    .help("Personal data or an optional cleanup action. Left unselected by default.")
+                    .help(recoverable ? "Personal data or an optional cleanup action. Left unselected by default."
+                                      : "This item cannot be moved to Recovery.")
             }
             if let date = item.lastModified {
                 Text(date, style: .date)

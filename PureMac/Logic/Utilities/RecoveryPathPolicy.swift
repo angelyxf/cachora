@@ -3,6 +3,23 @@ import Foundation
 /// Applied both before a move and when loading an untrusted recovery record.
 /// A container's Documents or an AI model cannot masquerade as a cache.
 enum RecoveryPathPolicy {
+    private static let systemLogRoots = ["/private/var/log", "/var/log"]
+
+    static func systemJunkRoots(home: String) -> [String] {
+        ["/Library/Caches", "/Library/Logs", home + "/Library/Logs",
+         "/private/tmp", "/private/var/tmp"].map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+    }
+
+    static func isSystemLogPath(_ path: String) -> Bool {
+        let normalized = (path as NSString).standardizingPath
+        return systemLogRoots.contains { normalized == $0 || RecoveryFileSystem.inside(normalized, $0) }
+    }
+
+    static func accepts(_ item: CleanableItem, home: URL) -> Bool {
+        guard !item.isActionItem, !isSystemLogPath(item.path), let snapshot = item.recoverySnapshot else { return false }
+        return accepts(path: item.path, category: item.category.rawValue, snapshot: snapshot, home: home)
+    }
+
     static func accepts(path: String, category: String, snapshot: RecoverySnapshot, home: URL) -> Bool {
         let base = home.path
         guard path == (path as NSString).standardizingPath,
@@ -31,7 +48,8 @@ enum RecoveryPathPolicy {
             }
             return false
         case "System Junk":
-            return within([base + "/Library/Logs", "/Library/Caches", "/Library/Logs", "/private/var/log", "/private/var/tmp", "/private/tmp"])
+            // Older recovery records may still refer to system logs.
+            return within(systemJunkRoots(home: base)) || within(systemLogRoots)
         case "Trash Bins": return within([base + "/.Trash"])
         case "Mail Files":
             return within([base + "/Library/Mail Downloads", base + "/Library/Containers/com.apple.mail/Data/Library/Mail Downloads"])
@@ -39,7 +57,9 @@ enum RecoveryPathPolicy {
             return within(["Library/Developer/Xcode/DerivedData", "Library/Developer/Xcode/Archives",
                 "Library/Developer/Xcode/iOS DeviceSupport", "Library/Developer/Xcode/watchOS DeviceSupport",
                 "Library/Developer/Xcode/tvOS DeviceSupport", "Library/Developer/Xcode/UserData/Previews",
-                "Library/Developer/CoreSimulator/Caches", "Library/Developer/XCTestDevices"].map { base + "/" + $0 }, whole: true)
+                "Library/Developer/CoreSimulator/Caches", "Library/Developer/XCTestDevices",
+                "Library/Caches/com.apple.dt.Xcode", "Library/Caches/org.swift.swiftpm",
+                "Library/org.swift.swiftpm"].map { base + "/" + $0 }, whole: true)
         case "Node Cache":
             return within([".npm", ".pnpm-store", ".cache/yarn", ".cache/pnpm", ".local/share/pnpm/store", "Library/pnpm/store"].map { base + "/" + $0 }, whole: true)
         case "Brew Cache": return within([base + "/Library/Caches/Homebrew"], whole: true)

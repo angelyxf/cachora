@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import ServiceManagement
+import UserNotifications
 
 struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
@@ -37,7 +38,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Settings")
                             .font(.system(size: 26, weight: .bold))
-                        Text("Make PureMac work your way.")
+                        Text("Make Cachora work your way.")
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                     }
@@ -67,7 +68,16 @@ struct SettingsView: View {
                 switch selectedTab {
                 case .general: GeneralSettingsView(permissionPresentation: standalone ? .settingsWindow : .mainWindow)
                 case .cleaning: CleaningSettingsView()
-                case .schedule: ScheduleSettingsView()
+                case .schedule:
+                    if appState.cleanupEnvironment.isFixture {
+                        Form {
+                            Section("Automatic Scanning") {
+                                Text("Scheduled scans are available in the regular app.")
+                            }
+                        }.formStyle(.grouped)
+                    } else {
+                        ScheduleSettingsView(scheduler: appState.scheduler)
+                    }
                 case .about: AboutSettingsView()
                 }
             }
@@ -121,7 +131,6 @@ struct GeneralSettingsView: View {
     @ObservedObject private var permission = PermissionCoordinator.shared
     @AppStorage("settings.general.launchAtLogin") private var launchAtLogin = false
     @AppStorage("settings.general.searchSensitivity") private var sensitivity: SearchSensitivity = .enhanced
-    @AppStorage("settings.general.confirmBeforeDelete") private var confirmBeforeDelete = true
     @AppStorage("settings.general.menuBarMonitor") private var menuBarMonitor = false
     @AppStorage(Haptics.soundEffectsKey) private var soundEffects = true
     @AppStorage(AppLanguage.preferenceKey) private var appLanguageRaw = AppLanguage.current.rawValue
@@ -161,6 +170,7 @@ struct GeneralSettingsView: View {
                     }
                 }
             }
+            .disabled(appState.cleanupEnvironment.isFixture)
 
             Section("Language") {
                 Picker("Language", selection: appLanguageBinding) {
@@ -170,7 +180,7 @@ struct GeneralSettingsView: View {
                 }
 
                 if languageNeedsRelaunch {
-                    Text("Restart PureMac to apply the selected language.")
+                    Text("Restart Cachora to apply the selected language.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -183,8 +193,9 @@ struct GeneralSettingsView: View {
             }
 
             Section("Startup") {
-                Toggle("Launch PureMac at login", isOn: launchAtLoginBinding)
+                Toggle("Launch Cachora at login", isOn: launchAtLoginBinding)
             }
+            .disabled(appState.cleanupEnvironment.isFixture)
 
             Section("App Scanning") {
                 Picker("Search sensitivity", selection: $sensitivity) {
@@ -203,17 +214,19 @@ struct GeneralSettingsView: View {
 
             Section("System Monitor") {
                 Toggle("Show system monitor in menu bar", isOn: menuBarMonitorBinding)
-                Text("Live CPU, memory, and disk meters in the menu bar. PureMac keeps running in the background while this is on.")
+                Text("Live CPU, memory, and disk meters in the menu bar. Cachora keeps running in the background while this is on.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            .disabled(appState.cleanupEnvironment.isFixture)
 
             Section("Sound") {
                 Toggle("Play sound effects", isOn: $soundEffects)
             }
 
             Section("Safety") {
-                Toggle("Confirm before deleting files", isOn: $confirmBeforeDelete)
+                Text("File removal always requires review.")
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -226,6 +239,7 @@ struct GeneralSettingsView: View {
     }
 
     private func refreshAccess() {
+        guard !appState.cleanupEnvironment.isFixture else { return }
         appState.checkFullDiskAccess()
         permission.refreshStatus()
     }
@@ -262,6 +276,7 @@ struct GeneralSettingsView: View {
     }
 
     private func toggleLaunchAtLogin(_ enabled: Bool) {
+        guard !appState.cleanupEnvironment.isFixture else { return }
         do {
             if enabled {
                 try SMAppService.mainApp.register()
@@ -409,6 +424,14 @@ struct CleaningSettingsView: View {
     }
 
     private func addExcludedFolder() {
+        if let sampleHome = appState.cleanupEnvironment.sampleHome {
+            let path = sampleHome.appendingPathComponent("Documents/Sample Files").path
+            if !excludedFolders.contains(path) {
+                excludedFolders.append(path)
+                persistExcludedFolders()
+            }
+            return
+        }
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -430,29 +453,49 @@ struct CleaningSettingsView: View {
 // MARK: - Schedule
 
 struct ScheduleSettingsView: View {
-    @EnvironmentObject var appState: AppState
+    @ObservedObject var scheduler: SchedulerService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var requestingNotifications = false
+    @State private var notificationsUnavailable = false
 
     var body: some View {
         Form {
             Section("Automatic Scanning") {
-                Toggle("Enable scheduled scanning", isOn: $appState.scheduler.config.isEnabled)
+                Toggle("Enable scheduled scanning", isOn: Binding(
+                    get: { scheduler.config.isEnabled }, set: scheduler.toggleEnabled
+                ))
+                Text("Runs while Cachora is open. Review the results before moving any files.")
+                    .font(.caption).foregroundStyle(.secondary)
 
-                if appState.scheduler.config.isEnabled {
+                if scheduler.config.isEnabled {
                     Group {
-                        Picker("Scan interval", selection: $appState.scheduler.config.interval) {
+                        Picker("Scan interval", selection: Binding(
+                            get: { scheduler.config.interval }, set: scheduler.updateSchedule
+                        )) {
                             ForEach(ScheduleInterval.allCases) { interval in
                                 Text(LocalizedStringKey(interval.rawValue)).tag(interval)
                             }
                         }
 
-                        Toggle("Auto-clean after scan", isOn: $appState.scheduler.config.autoClean)
-                        Toggle("Notify on completion", isOn: $appState.scheduler.config.notifyOnCompletion)
+                        Toggle("Notify on completion", isOn: Binding(
+                            get: { scheduler.config.notifyOnCompletion }, set: setNotificationPreference
+                        ))
+                        .disabled(requestingNotifications)
+                        if notificationsUnavailable {
+                            Text("Notifications are unavailable. Scheduled scans still run.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
 
                         HStack {
                             Text("Last run")
                             Spacer()
-                            Text(appState.scheduler.config.formattedLastRun)
+                            Text(scheduler.config.formattedLastRun)
+                                .foregroundStyle(.secondary)
+                        }
+                        HStack {
+                            Text("Next run")
+                            Spacer()
+                            Text(scheduler.config.formattedNextRun)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -462,24 +505,41 @@ struct ScheduleSettingsView: View {
         }
         .formStyle(.grouped)
         .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85),
-                   value: appState.scheduler.config.isEnabled)
+                   value: scheduler.config.isEnabled)
+    }
+
+    private func setNotificationPreference(_ enabled: Bool) {
+        notificationsUnavailable = false
+        guard enabled else {
+            scheduler.config.notifyOnCompletion = false
+            return
+        }
+        requestingNotifications = true
+        Task { @MainActor in
+            let granted = (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) == true
+            scheduler.config.notifyOnCompletion = granted
+            notificationsUnavailable = !granted
+            requestingNotifications = false
+        }
     }
 }
 
 // MARK: - About
 
 struct AboutSettingsView: View {
+    @EnvironmentObject private var appState: AppState
+
     var body: some View {
         Form {
             Section {
                 HStack {
-                    if let appIcon = NSImage(named: "AppIcon") {
+                    if let appIcon = NSApp.applicationIconImage {
                         Image(nsImage: appIcon)
                             .resizable()
                             .frame(width: 64, height: 64)
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("PureMac")
+                        Text(verbatim: ProductIdentity.name)
                             .font(.title2.bold())
                         Text(
                             String(
@@ -488,25 +548,25 @@ struct AboutSettingsView: View {
                             )
                         )
                             .foregroundStyle(.secondary)
-                        Text("Free, open-source macOS app manager.")
+                        Text("Free. Open source. MIT licensed.")
                             .foregroundStyle(.secondary)
                             .font(.caption)
                     }
                 }
             }
 
-            Section("Updates") {
-                AppUpdateSettingsView()
+            if !appState.cleanupEnvironment.isFixture {
+                Section("Updates") {
+                    AppUpdateSettingsView()
+                }
             }
 
-            Section {
-                Link("GitHub Repository", destination: URL(string: "https://github.com/momenbasel/PureMac")!)
-                Link("Report an Issue", destination: URL(string: "https://github.com/momenbasel/PureMac/issues")!)
-            }
-
-            Section {
-                Text("MIT License")
-                    .foregroundStyle(.secondary)
+            if !appState.cleanupEnvironment.isFixture,
+               let repository = ProductIdentity.releaseChannel?.releasesURL.deletingLastPathComponent() {
+                Section {
+                    Link("GitHub Repository", destination: repository)
+                    Link("Report an Issue", destination: repository.appendingPathComponent("issues"))
+                }
             }
         }
         .formStyle(.grouped)

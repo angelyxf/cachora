@@ -2,8 +2,6 @@ import SwiftUI
 
 struct RecoveryCenterView: View {
     @ObservedObject var model: RecoveryCenterModel
-    var showCloseButton = true
-    @Environment(\.dismiss) private var dismiss
     @State private var pendingPurge: RecoveryEntry?
 
     var body: some View {
@@ -13,7 +11,6 @@ struct RecoveryCenterView: View {
                     .font(.title2.weight(.semibold))
                 Spacer()
                 Button("Refresh") { Task { await model.refresh() } }.disabled(model.busy)
-                if showCloseButton { Button("Done") { dismiss() }.keyboardShortcut(.cancelAction).disabled(model.busy) }
             }
             Text("Cleanup moves files here first. Retained copies still use disk space. Permanent deletion cannot be undone.")
                 .font(.callout).foregroundStyle(.secondary)
@@ -97,29 +94,5 @@ struct RecoveryCenterView: View {
         case .failed: return String(localized: "No file moved")
         default: return String(localized: "Checking interrupted operation")
         }
-    }
-}
-
-/// Uses the same review, cleanup engine and recovery view as the normal app,
-/// while exposing no tools that could reach real documents or system data.
-struct RecoveryFixtureView: View {
-    @EnvironmentObject var appState: AppState
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Test mode — disposable files only", systemImage: "testtube.2")
-                .font(.headline).padding(.horizontal, 24).padding(.top, 18)
-            Text(appState.cleanupEnvironment.home.deletingLastPathComponent().path)
-                .font(.system(.caption, design: .monospaced)).textSelection(.enabled).padding(.horizontal, 24)
-            TabView {
-                CategoryDetailView(category: .userCache).tabItem { Label("Test files", systemImage: "folder") }
-                RecoveryCenterView(model: appState.recoveryCenter, showCloseButton: false)
-                    .tabItem { Label("Recovery", systemImage: "clock.arrow.circlepath") }
-            }
-        }.frame(minWidth: 960, minHeight: 640)
-        .alert("Cleanup needs review", isPresented: Binding(
-            get: { appState.cleanError != nil }, set: { if !$0 { appState.cleanError = nil } }
-        )) {
-            Button("OK") { appState.cleanError = nil }
-        } message: { Text(appState.cleanError ?? "") }
     }
 }

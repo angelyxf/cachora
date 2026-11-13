@@ -37,7 +37,7 @@ enum LeftoverGroup: String, CaseIterable, Identifiable {
         case .logs: return Tint.yellow
         case .containers: return Tint.pink
         case .launchAgents: return Tint.red
-        case .other: return Tint.green
+        case .other: return .secondary
         }
     }
 
@@ -57,11 +57,10 @@ enum LeftoverGroup: String, CaseIterable, Identifiable {
 struct AppFilesView: View {
     @EnvironmentObject var appState: AppState
     let app: InstalledApp
+    let reviewRemoval: (Set<URL>) -> Void
 
     @State private var collapsedGroups: Set<LeftoverGroup> = []
     @State private var iconHovering = false
-    @State private var showBulkConfirmation = false
-    @State private var pendingRemoval: Set<URL> = []
     /// One-pass size cache so group headers and the selected-size counter
     /// don't re-stat the disk on every render.
     @State private var sizeCache: [URL: Int64] = [:]
@@ -100,7 +99,7 @@ struct AppFilesView: View {
                     description: LocalizedStringKey(
                         String(format: String(localized: "No additional files found for %@."), app.appName)
                     ),
-                    tint: Tint.green
+                    tint: Tint.accent
                 )
             } else {
                 fileGroupsList
@@ -123,15 +122,6 @@ struct AppFilesView: View {
             sizeCache = sizes
         }
         .disabled(appState.isRemovingAppFiles)
-        .confirmationDialog("Remove selected app files?", isPresented: $showBulkConfirmation, titleVisibility: .visible) {
-            Button("Remove \(pendingRemoval.count) files", role: .destructive) {
-                appState.removeSelectedFiles(confirmedURLs: pendingRemoval)
-                pendingRemoval = []
-            }
-            Button("Cancel", role: .cancel) { pendingRemoval = [] }
-        } message: {
-            Text("PureMac will move the selected app and related files to the Trash. Items requiring administrator authorization may be permanently deleted. Review the selection before continuing.")
-        }
         .onChange(of: appState.removalNeedsFullDiskAccess) { needs in
             // FDA-fixable removals jump straight into the rich sheet, the
             // same flow cleanup uses. The user grants permission once and we
@@ -325,6 +315,16 @@ struct AppFilesView: View {
 
     private var actionBar: some View {
         HStack(spacing: 12) {
+            if appState.discoveredFiles.count == 1,
+               appState.discoveredFiles.first?.path == app.path.standardizedFileURL.path {
+                Button("Scan related files") {
+                    appState.scanForAppFiles(app)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(appState.isRemovingAppFiles)
+            }
+
             Button("Select All") {
                 appState.selectedFiles = Set(appState.discoveredFiles)
             }
@@ -341,8 +341,7 @@ struct AppFilesView: View {
 
             if !appState.selectedFiles.isEmpty {
                 Button(role: .destructive) {
-                    pendingRemoval = appState.selectedFiles
-                    showBulkConfirmation = true
+                    reviewRemoval(appState.selectedFiles)
                 } label: {
                     Text(removeFilesLabel)
                 }
@@ -400,8 +399,7 @@ struct AppFilesView: View {
     }
 
     private func removeSingleFile(_ url: URL) {
-        appState.selectedFiles = [url]
-        appState.removeSelectedFiles()
+        reviewRemoval([url])
     }
 }
 

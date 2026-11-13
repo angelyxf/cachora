@@ -20,7 +20,7 @@ struct AppleFeaturesView: View {
     @State private var inventoryTask: Task<Void, Never>?
     @State private var inventoryRunning = false
     @State private var inventoryNotice: String?
-    @State private var backupService = DeviceBackupService()
+    @State private var backupService: DeviceBackupService
     @State private var backups: [DeviceBackup] = []
     @State private var backupIssues: [String] = []
     @State private var backupSelection: Set<URL> = []
@@ -31,6 +31,14 @@ struct AppleFeaturesView: View {
     @State private var removalNotice: String?
     @State private var pendingRemoval: BackupSelection?
     @State private var errorMessage: String?
+    private let sampleHome: URL?
+
+    init(sampleHome: URL? = nil, sampleTrash: (@Sendable (URL) throws -> Void)? = nil) {
+        self.sampleHome = sampleHome
+        _backupService = State(initialValue: DeviceBackupService(
+            homeDirectory: sampleHome ?? FileManager.default.homeDirectoryForCurrentUser, trashHandler: sampleTrash
+        ))
+    }
 
     private var removalRunning: Bool { appState.deviceBackupRemovalInProgress }
 
@@ -110,7 +118,7 @@ struct AppleFeaturesView: View {
 
     private var featuresContent: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Changes are made in Apple's settings. PureMac does not detect or verify whether a feature is enabled.")
+            Text("Changes are made in Apple's settings. Cachora does not detect or verify whether a feature is enabled.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -166,7 +174,9 @@ struct AppleFeaturesView: View {
                     Text("Apple downloads")
                         .font(.system(size: 16, weight: .semibold))
                         .accessibilityAddTraits(.isHeader)
-                    Text("Measure known locations without deleting files. These sizes are not a recoverable-space estimate.")
+                    Text(sampleHome == nil
+                         ? "Measure known locations without deleting files. These sizes are not a recoverable-space estimate."
+                         : "Measure the generated Apple storage files in this test workspace.")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -303,7 +313,7 @@ struct AppleFeaturesView: View {
 
     private func backupRow(_ backup: DeviceBackup) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Toggle("Select backup \(backup.name)", isOn: Binding(
+            Toggle("Select \(backup.name)", isOn: Binding(
                 get: { backupSelection.contains(backup.id) },
                 set: { selected in
                     if selected { backupSelection.insert(backup.id) }
@@ -347,11 +357,15 @@ struct AppleFeaturesView: View {
         inventoryTask = Task { @MainActor in
             defer { inventoryRunning = false }
             do {
-                let result = try await AppleStorageService.scan()
+                let locations = sampleHome.map { AppleStorageService.sampleLocations(home: $0) }
+                    ?? AppleStorageService.standardLocations()
+                let result = try await AppleStorageService.scan(locations: locations)
                 try Task.checkCancellation()
                 inventory = result
             } catch is CancellationError {
-                inventoryNotice = inventory == nil ? "Storage measurement stopped." : "Storage measurement stopped. Previous results are still shown."
+                inventoryNotice = inventory == nil
+                    ? String(localized: "Storage measurement stopped.")
+                    : String(localized: "Storage measurement stopped. Previous results are still shown.")
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -376,7 +390,7 @@ struct AppleFeaturesView: View {
                 backupIssues = result.issues
                 backupsScanned = true
             } catch is CancellationError {
-                removalNotice = "Backup scan stopped. Scan again before selecting backups."
+                removalNotice = String(localized: "Backup scan stopped. Scan again before selecting backups.")
                 backups = []
                 backupsScanned = false
             } catch {
@@ -389,7 +403,7 @@ struct AppleFeaturesView: View {
     private func removeBackups(_ selection: [DeviceBackup]) {
         guard !backupsRunning else { return }
         guard appState.canRemoveDeviceBackups else {
-            removalNotice = "Backup removal is available after the current scan or cleanup finishes."
+            removalNotice = String(localized: "Backup removal is available after the current scan or cleanup finishes.")
             return
         }
         let sharedState = appState
@@ -407,7 +421,7 @@ struct AppleFeaturesView: View {
                 backupSelection = []
                 if !removed.isEmpty {
                     inventory = nil
-                    inventoryNotice = "Backups changed. Measure storage again for current sizes."
+                    inventoryNotice = String(localized: "Backups changed. Measure storage again for current sizes.")
                 }
             } catch {
                 sharedState.deviceBackupRemovalResult = DeviceBackupRemovalResult(
@@ -418,6 +432,10 @@ struct AppleFeaturesView: View {
     }
 
     private func openDestination(_ destination: String) {
+        guard sampleHome == nil else {
+            errorMessage = String(localized: "System settings and external guides are available in the regular app.")
+            return
+        }
         if destination.hasPrefix("application:") {
             let identifier = String(destination.dropFirst("application:".count))
             guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) else {
@@ -439,6 +457,10 @@ struct AppleFeaturesView: View {
     }
 
     private func openURL(_ url: URL) {
+        guard sampleHome == nil else {
+            errorMessage = String(localized: "System settings and external guides are available in the regular app.")
+            return
+        }
         if !NSWorkspace.shared.open(url) {
             errorMessage = "Could not open \(url.absoluteString). Open the app or guide manually."
         }
@@ -546,9 +568,14 @@ private struct AppleStorageRow: View {
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
             if item.status == .partial {
-                Text("Partial measurement: \(item.skippedCount) skipped, \(item.inaccessibleCount) inaccessible.\(item.reachedLimit ? " Entry limit reached." : "")")
+                Text("Partial measurement: \(item.skippedCount) skipped, \(item.inaccessibleCount) inaccessible.")
                     .font(.system(size: 11))
                     .foregroundStyle(Tint.orange)
+                if item.reachedLimit {
+                    Text("Entry limit reached.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Tint.orange)
+                }
             } else if item.status == .unavailable {
                 Text("This location could not be measured. Permissions or protected system storage may prevent access.")
                     .font(.system(size: 11))
@@ -621,7 +648,7 @@ private struct DeviceBackupConfirmation: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Move \(backups.count) backups to the Trash?")
+            Text(backups.count == 1 ? "Move this backup to the Trash?" : "Move \(backups.count) backups to the Trash?")
                 .font(.system(size: 19, weight: .semibold))
             Text("Removing your only backup prevents you from restoring that device from this Mac. Disconnect devices and stop any active backups before continuing.")
                 .font(.system(size: 12))
@@ -644,7 +671,7 @@ private struct DeviceBackupConfirmation: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxHeight: 220)
-            Text("PureMac rechecks each selected backup before moving it. Emptying the Trash is a separate action.")
+            Text("Cachora rechecks each selected backup before moving it. Emptying the Trash is a separate action.")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             if !canRemove {

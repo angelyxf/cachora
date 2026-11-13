@@ -53,7 +53,9 @@ final class PermissionCoordinator: ObservableObject {
     private var pendingGrantWork: DispatchWorkItem?
 
     private init() {
-        hasFullDiskAccess = FullDiskAccessManager.shared.hasFullDiskAccess
+        if !CleanupEnvironment.fixtureRequested {
+            hasFullDiskAccess = FullDiskAccessManager.shared.hasFullDiskAccess
+        }
     }
 
     /// Begin the request flow. `onGranted` fires exactly once when permission

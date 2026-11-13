@@ -102,7 +102,7 @@ struct OnboardingView: View {
         case .welcome: return Tint.blue
         case .mission: return Tint.purple
         case .permission: return Tint.orange
-        case .ready: return Tint.green
+        case .ready: return Tint.accent
         }
     }
 
@@ -135,10 +135,11 @@ struct OnboardingView: View {
 
             if page == .ready {
                 Button("Start") { isComplete = true }
-                    .buttonStyle(GlowProminentButtonStyle(breathes: true))
+                    .accentButtonStyle()
+                    .controlSize(.large)
             } else {
                 Button(LocalizedStringKey(page == .permission ? "Continue" : "Next")) { advance(by: 1) }
-                    .buttonStyle(.borderedProminent)
+                    .accentButtonStyle()
                     .controlSize(.large)
             }
         }
@@ -214,7 +215,7 @@ private struct WelcomeScene: View {
             Spacer(minLength: 0)
 
             ZStack {
-                if let icon = NSImage(named: "AppIcon") {
+                if let icon = NSApp.applicationIconImage {
                     Image(nsImage: icon)
                         .resizable()
                         .interpolation(.high)
@@ -352,7 +353,7 @@ private struct PermissionScene: View {
                     .multilineTextAlignment(.center)
                 Text(LocalizedStringKey(
                     hasFda
-                        ? "PureMac can now reach the locations macOS protects by default."
+                        ? "Cachora can now reach the locations macOS protects by default."
                         : "macOS hides certain folders from every app until you say otherwise. We need them to find caches and uninstall cleanly."
                 ))
                     .font(.system(size: 13))
@@ -384,7 +385,7 @@ private struct PermissionScene: View {
                         Button {
                             openSettings()
                         } label: {
-                            Label(LocalizedStringKey(hasOpenedSettings ? "Reopen Settings" : "Open Settings & reveal PureMac"),
+                            Label(LocalizedStringKey(hasOpenedSettings ? "Reopen Settings" : "Open Settings & reveal Cachora"),
                                   systemImage: "gear")
                                 .font(.system(size: 13, weight: .semibold))
                                 .frame(minWidth: 240)
@@ -444,7 +445,7 @@ private struct ReadyScene: View {
 
                 ZStack {
                     Circle()
-                        .fill((hasFda ? Tint.green : Tint.orange).opacity(0.12))
+                        .fill((hasFda ? Color.secondary : Tint.orange).opacity(0.12))
                         .frame(width: 110, height: 110)
                     Image(systemName: hasFda ? "checkmark" : "hand.wave.fill")
                         .font(.system(size: 50, weight: .semibold))

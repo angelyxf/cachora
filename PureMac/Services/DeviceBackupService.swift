@@ -146,11 +146,12 @@ actor DeviceBackupService {
     private func openRoot() throws -> (descriptor: Int32, identities: [UInt64]) {
         guard root.path.hasPrefix("/"), root.path == root.standardizedFileURL.path,
               !root.path.utf8.contains(0) else { throw failure("Invalid backup location", root) }
+        let walkPath = try RecoveryFileSystem.directoryWalkPath(root.path)
         var descriptor = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard descriptor >= 0 else { throw posixError() }
         var identities: [UInt64] = []
         do {
-            for component in root.path.split(separator: "/") {
+            for component in walkPath.split(separator: "/") {
                 try Task.checkCancellation()
                 let next = openat(descriptor, String(component), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
                 guard next >= 0 else { throw posixError() }

@@ -4,7 +4,7 @@ struct AppListView: View {
     @EnvironmentObject var appState: AppState
     @State private var searchText = ""
     @State private var selection: InstalledApp.ID?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pendingRemoval: TrashSelection?
     @State private var sortOrder: [KeyPathComparator<InstalledApp>] = [
         .init(\.appName, order: .forward)
     ]
@@ -36,24 +36,28 @@ struct AppListView: View {
         .searchable(text: $searchText, prompt: "Search apps")
         .navigationTitle(installedAppsTitle)
         .toolbar {
-            ToolbarItemGroup {
+            ToolbarItem {
                 Button {
                     appState.loadInstalledApps()
                 } label: {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
-
-                // ToolbarItems can't run insertion transitions on macOS 13 —
-                // keep the button mounted and fade it with the selection.
-                Button(uninstallLabel(count: appState.selectedFiles.count), role: .destructive) {
-                    appState.removeSelectedFiles()
+            }
+            if !appState.selectedFiles.isEmpty {
+                ToolbarItem {
+                    Button(uninstallLabel(count: appState.selectedFiles.count), role: .destructive) {
+                        pendingRemoval = TrashSelection(urls: appState.selectedFiles)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .disabled(appState.isRemovingAppFiles)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .opacity(appState.selectedFiles.isEmpty ? 0 : 1)
-                .disabled(appState.selectedFiles.isEmpty)
-                .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8),
-                           value: appState.selectedFiles.isEmpty)
+            }
+        }
+        .sheet(item: $pendingRemoval) { selection in
+            TrashReviewSheet(title: "Remove selected app files?", selection: selection,
+                             isFixture: appState.cleanupEnvironment.isFixture) {
+                appState.removeSelectedFiles(confirmedURLs: $0)
             }
         }
     }
@@ -105,8 +109,8 @@ struct AppListView: View {
                           let app = appState.installedApps.first(where: { $0.id == id })
                     else { return }
                     // Skip when the selection was just synced from an external
-                    // (Finder Services) hand-off that already scanned this app,
-                    // so we don't fire a redundant second scan.
+                    // (Finder Services) hand-off. Related-file scanning is
+                    // an explicit action in that flow.
                     guard appState.selectedApp?.id != app.id else { return }
                     appState.selectedApp = app
                     appState.scanForAppFiles(app)
@@ -132,7 +136,7 @@ struct AppListView: View {
     @ViewBuilder
     private var fileDetail: some View {
         if let app = appState.selectedApp {
-            AppFilesView(app: app)
+            AppFilesView(app: app) { pendingRemoval = TrashSelection(urls: $0) }
         } else {
             EmptyStateView(
                 "Select an App",

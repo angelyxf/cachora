@@ -18,7 +18,8 @@ final class AppStateTests: XCTestCase {
             }
         )
 
-        appState.scanForAppFiles(makeApp())
+        let app = makeApp()
+        appState.scanForAppFiles(app)
 
         XCTAssertTrue(appState.isScanningAppFiles)
         XCTAssertTrue(appState.discoveredFiles.isEmpty)
@@ -26,6 +27,8 @@ final class AppStateTests: XCTestCase {
 
         let pendingCompletion = try XCTUnwrap(completion)
         let urls: Set<URL> = [
+            app.path,
+            app.path.deletingLastPathComponent(),
             URL(fileURLWithPath: "/tmp/B"),
             URL(fileURLWithPath: "/tmp/A")
         ]
@@ -35,10 +38,10 @@ final class AppStateTests: XCTestCase {
         XCTAssertFalse(appState.isScanningAppFiles)
         XCTAssertEqual(
             appState.discoveredFiles,
-            urls.sorted { $0.path < $1.path }
+            urls.subtracting([app.path.deletingLastPathComponent()]).sorted { $0.path < $1.path }
         )
-        XCTAssertEqual(appState.selectedFiles, urls)
-        XCTAssertEqual(appState.currentAppFileSearchLocationCount, urls.count)
+        XCTAssertEqual(appState.selectedFiles, [app.path])
+        XCTAssertEqual(appState.currentAppFileSearchLocationCount, urls.count - 1)
     }
 
     func testOlderAppScanCannotReplaceNewerAppResults() {
@@ -52,7 +55,7 @@ final class AppStateTests: XCTestCase {
         completions[1](latest)
         completions[0]([URL(fileURLWithPath: "/fixtures/stale")])
         XCTAssertEqual(Set(state.discoveredFiles), latest)
-        XCTAssertEqual(state.selectedFiles, latest)
+        XCTAssertTrue(state.selectedFiles.isEmpty)
     }
 
     func testFullDiskAccessRetryKeepsUninstallInTrashFlow() async {

@@ -78,6 +78,7 @@ struct AppRelease: Decodable, Equatable {
             let name = $0.name.lowercased()
             return name.hasPrefix(channel.assetPrefix.lowercased() + "-")
                 && !name.contains("/") && !name.contains("cli") && !name.contains("fixture") && !name.contains("source")
+                && !name.contains("local-preview") && !name.contains("unsigned")
                 && (name.hasSuffix(".zip") || name.hasSuffix(".dmg"))
         }
     }

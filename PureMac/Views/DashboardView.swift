@@ -4,15 +4,19 @@ struct DashboardView: View {
     @EnvironmentObject var appState: AppState
     var onNavigate: (AppSection) -> Void = { _ in }
 
-    @State private var showConfirmation = false
     @State private var hoveredSegment: String?
-    @State private var pendingCleanItems: [CleanableItem] = []
+    @State private var pendingReview: CleanupSelection?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 pageHeader
+                if let notice = appState.lastCleanupSkipNotice, appState.scanState != .idle {
+                    Label(notice, systemImage: "info.circle")
+                        .font(.callout).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 stateContent
             }
             .padding(.horizontal, 28)
@@ -21,21 +25,13 @@ struct DashboardView: View {
             .frame(maxWidth: .infinity, alignment: .top)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .confirmationDialog(
-            cleanConfirmationTitle,
-            isPresented: $showConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Clean selected items", role: .destructive) {
-                appState.cleanAll(itemIDs: Set(pendingCleanItems.map(\.id)))
-                pendingCleanItems = []
+        .sheet(item: $pendingReview) { selection in
+            CleanupReviewSheet(items: selection.items) { itemIDs in
+                appState.cleanAll(itemIDs: itemIDs)
             }
-            Button("Cancel", role: .cancel) {
-                pendingCleanItems = []
-            }
-        } message: {
-            Text(cleanConfirmationMessage)
         }
+        .onChange(of: pendingReview != nil) { appState.showCleanConfirmation = $0 }
+        .onDisappear { if pendingReview != nil { appState.showCleanConfirmation = false } }
     }
 
     private var pageHeader: some View {
@@ -55,8 +51,12 @@ struct DashboardView: View {
             VStack(alignment: .trailing, spacing: 7) {
                 let status = headerStatus
                 StatusChip(label: status.label, systemImage: status.icon, tint: status.tint)
-                TimelineView(.periodic(from: .now, by: 60)) { timeline in
-                    Text(lastCareText(relativeTo: timeline.date))
+                TimelineView(.periodic(from: .now, by: 60)) { _ in
+                    Text(Self.lastCareText(
+                        lastScan: appState.lastScanDate,
+                        lastCleanup: appState.lastCleanedDate,
+                        relativeTo: .now
+                    ))
                         .font(.system(size: 10.5))
                         .foregroundStyle(.tertiary)
                 }
@@ -128,10 +128,12 @@ struct DashboardView: View {
         }
     }
 
-    private func lastCareText(relativeTo now: Date) -> String {
-        let date = appState.lastCleanedDate ?? appState.lastScanDate
-        guard let date else {
+    static func lastCareText(lastScan: Date?, lastCleanup: Date?, relativeTo now: Date) -> String {
+        guard let date = [lastScan, lastCleanup].compactMap({ $0 }).max() else {
             return String(localized: "No scan run yet")
+        }
+        if now.timeIntervalSince(date) < 60 {
+            return String(format: String(localized: "Last activity: %@"), String(localized: "Just now"))
         }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
@@ -141,7 +143,7 @@ struct DashboardView: View {
 
     private var idleContent: some View {
         VStack(alignment: .leading, spacing: 20) {
-            diskOverview
+            if !appState.cleanupEnvironment.isFixture { diskOverview }
             scanIntroduction
 
             HStack(alignment: .top, spacing: 16) {
@@ -194,7 +196,7 @@ struct DashboardView: View {
                             Divider().padding(.leading, 46)
                             DashboardToolCard(
                                 title: "App Updates",
-                                detail: "Check Homebrew-managed apps",
+                                detail: "App Store and Homebrew",
                                 icon: "arrow.triangle.2.circlepath",
                                 tint: Tint.accent
                             ) { onNavigate(.appUpdates) }
@@ -226,21 +228,27 @@ struct DashboardView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Review cleanup")
                         .font(.system(size: 16, weight: .semibold))
-                    Text("Check \(CleaningCategory.scannable.count) categories for caches, logs, and other removable files. Review the results before deleting anything.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Group {
+                        if appState.cleanupEnvironment.isFixture {
+                            Text("Use the test files to try scanning, cleanup, and recovery.")
+                        } else {
+                            Text("Check \(appState.cleanupEnvironment.scanCategories.count) categories for caches, logs, and other removable files. Review the results before deleting anything.")
+                        }
+                    }
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Button {
                     appState.startSmartScan()
                 } label: {
-                    Label("Scan this Mac", systemImage: "magnifyingglass")
+                    Label(appState.cleanupEnvironment.isFixture ? "Scan test files" : "Scan this Mac",
+                          systemImage: "magnifyingglass")
                 }
-                .buttonStyle(.borderedProminent)
+                .accentButtonStyle()
                 .controlSize(.large)
-                .tint(Tint.accent)
                 .accessibilityIdentifier("dashboard.scan")
             }
         }
@@ -257,7 +265,7 @@ struct DashboardView: View {
                             Text(appState.diskInfo.formattedFree)
                                 .font(.system(size: 26, weight: .semibold))
                                 .monospacedDigit()
-                            Text("available")
+                            Text("Available")
                                 .font(.system(size: 12))
                                 .foregroundStyle(.secondary)
                         }
@@ -465,9 +473,8 @@ struct DashboardView: View {
                             } label: {
                                 Label(cleanSelectedLabel, systemImage: "trash")
                             }
-                            .buttonStyle(.borderedProminent)
+                            .accentButtonStyle()
                             .controlSize(.large)
-                            .tint(Tint.accent)
                         }
                         Button("Scan again") {
                             appState.startSmartScan()
@@ -520,7 +527,7 @@ struct DashboardView: View {
                     Text(
                         appState.scanWasCancelled
                             ? "Run the scan again when you are ready to check every area."
-                            : "PureMac did not find removable items in the selected scan areas."
+                            : "Cachora did not find removable items in the selected scan areas."
                     )
                     .font(.system(size: 12.5))
                     .foregroundStyle(.secondary)
@@ -563,7 +570,7 @@ struct DashboardView: View {
                 }
                 ProgressView(value: appState.cleanProgress)
                     .tint(Tint.accent)
-                Text("Keep PureMac open until cleanup finishes.")
+                Text("Keep Cachora open until cleanup finishes.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
@@ -598,8 +605,7 @@ struct DashboardView: View {
                     Button("Done") {
                         appState.scanState = .idle
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Tint.accent)
+                    .accentButtonStyle()
                     .padding(.top, 5)
                 }
                 Spacer()
@@ -608,26 +614,11 @@ struct DashboardView: View {
         }
     }
 
-    private var cleanConfirmationTitle: String {
-        let size = pendingCleanItems.reduce(Int64(0)) { $0 + $1.size }
-        return String(
-            format: String(localized: "Move %@ to Recovery?"),
-            ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
-        )
-    }
-
-    private var cleanConfirmationMessage: String {
-        String(
-            format: String(localized: "%lld selected items will move to Recovery. Retained copies still use disk space."),
-            Int64(pendingCleanItems.count)
-        )
-    }
-
     private func prepareCleanupConfirmation() {
-        pendingCleanItems = appState.allResults
+        let selected = appState.allResults
             .flatMap(\.items)
             .filter(appState.isItemSelected)
-        showConfirmation = !pendingCleanItems.isEmpty
+        if !selected.isEmpty { pendingReview = CleanupSelection(items: selected) }
     }
 
     private var cleanSelectedLabel: String {

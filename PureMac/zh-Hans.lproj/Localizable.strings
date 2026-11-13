@@ -4,8 +4,8 @@
 "Cleanup" = "清理";
 "Dashboard" = "仪表盘";
 "Installed Apps" = "已安装的应用";
-"Orphaned Files" = "应用残留";
-"PureMac" = "PureMac";
+"Orphaned Files" = "疑似应用残留";
+"Cachora" = "Cachora";
 "Ready to clean" = "可以清理";
 "Limited access" = "访问受限";
 "Full Disk Access granted" = "已授予完全磁盘访问权限";
@@ -17,7 +17,7 @@
 "Open System Settings" = "打开“系统设置”";
 "OK" = "好";
 "Full Disk Access required" = "需要完全磁盘访问权限";
-"macOS blocks PureMac from cleaning caches and uninstalling apps until you grant access." = "授予权限后，PureMac 才能访问受保护的缓存和应用文件。";
+"macOS blocks Cachora from cleaning caches and uninstalling apps until you grant access." = "授予权限后，Cachora 才能访问受保护的缓存和应用文件。";
 "Grant Access" = "授予权限";
 
 /* Dashboard */
@@ -106,6 +106,7 @@
 "1 folder" = "1 个文件夹";
 "1 file" = "1 个文件";
 "Scanning for related files..." = "正在扫描相关文件...";
+"Scan related files" = "扫描关联文件";
 "Checking %lld locations..." = "正在检查 %lld 个位置...";
 "No Related Files" = "没有相关文件";
 "No additional files found for %@." = "未找到 %@ 的额外文件。";
@@ -120,8 +121,8 @@
 "Scanning for orphaned files..." = "正在查找应用残留…";
 "No Orphaned Files" = "未发现应用残留";
 "No leftover files from uninstalled apps were found." = "未发现已卸载应用的残留文件。";
-"Scan for Orphans" = "查找应用残留";
-"Orphaned Files (%lld)" = "应用残留（%lld 项）";
+"Scan for Orphans" = "查找疑似应用残留";
+"Orphaned Files (%lld)" = "疑似应用残留（%lld 项）";
 "Remove Selected (%lld)" = "删除所选 (%lld)";
 "Some files could not be removed" = "部分文件无法删除";
 "blocked by safety policy" = "已被安全策略阻止";
@@ -131,7 +132,7 @@
 "Back" = "返回";
 "Next" = "下一步";
 "Get Started" = "开始使用";
-"Welcome to PureMac" = "欢迎使用 PureMac";
+"Welcome to Cachora" = "欢迎使用 Cachora";
 "Free, open-source macOS app manager and system cleaner." = "免费、开源的 macOS 应用管理和系统清理工具。";
 "Find junk files across your system" = "在系统中查找垃圾文件";
 "App Uninstaller" = "应用卸载器";
@@ -139,21 +140,21 @@
 "Orphan Finder" = "残留查找";
 "Find leftovers from deleted apps" = "查找已删除应用的残留";
 "Full Disk Access" = "完全磁盘访问权限";
-"PureMac needs Full Disk Access to uninstall apps, find leftover files, and clean protected caches." = "PureMac 需要完全磁盘访问权限以卸载应用、查找残留文件并清理受保护的缓存。";
+"Cachora needs Full Disk Access to uninstall apps, find leftover files, and clean protected caches." = "Cachora 需要完全磁盘访问权限以卸载应用、查找残留文件并清理受保护的缓存。";
 "We'll guide you through the next steps." = "我们将引导你完成接下来的步骤。";
 "In System Settings, do this:" = "在“系统设置”中执行以下操作：";
 "Privacy & Security → Full Disk Access" = "隐私与安全性 → 完全磁盘访问权限";
-"Find **PureMac** and turn the toggle on" = "找到 **PureMac** 并打开开关";
+"Find **Cachora** and turn the toggle on" = "找到 **Cachora** 并打开开关";
 "Authenticate with Touch ID or your password" = "使用触控 ID 或密码进行验证";
 "Reopen Settings" = "重新打开“设置”";
-"PureMac isn't in the list — reveal it" = "列表中没有 PureMac？在访达中显示";
+"Cachora isn't in the list — reveal it" = "列表中没有 Cachora？在访达中显示";
 "Reset permissions and re-prompt" = "重置权限并再次提示";
 "Hide diagnostics" = "隐藏诊断";
 "Show diagnostics" = "显示诊断";
 "Trouble?" = "遇到问题？";
 "Waiting for permission…" = "等待授权…";
 "Permission granted." = "已授予权限。";
-"PureMac can now manage protected files." = "PureMac 现在可以管理受保护的文件。";
+"Cachora can now manage protected files." = "Cachora 现在可以管理受保护的文件。";
 "You're Ready" = "已准备就绪";
 "%lld/%lld protected locations accessible" = "可访问的受保护位置 %lld/%lld";
 "Some features will be limited without Full Disk Access. You can grant it later in Settings." = "没有完全磁盘访问权限时，部分功能将受限。你可以稍后在设置中授予该权限。";
@@ -175,7 +176,7 @@
 "Schedule" = "计划";
 "About" = "关于";
 "Startup" = "启动";
-"Launch PureMac at login" = "登录时启动 PureMac";
+"Launch Cachora at login" = "登录时启动 Cachora";
 "App Scanning" = "应用扫描";
 "Search sensitivity" = "搜索灵敏度";
 "Strict" = "严格";
@@ -185,7 +186,7 @@
 "Includes partial name matching and bundle ID components." = "包含部分名称匹配和套件 ID 组件。";
 "Includes company name, entitlements, and team identifier matching." = "包含公司名称、授权和团队标识符匹配。";
 "Language" = "语言";
-"Restart PureMac to apply the selected language." = "请重新启动 PureMac 以应用所选语言。";
+"Restart Cachora to apply the selected language." = "请重新启动 Cachora 以应用所选语言。";
 "Relaunch Now" = "立即重新启动";
 "System Default" = "系统默认";
 "English" = "英语";
@@ -240,7 +241,7 @@
 
 /* Cleaning category descriptions */
 "Scan everything at once" = "一次扫描所有内容";
-"System caches, logs, and temporary files" = "系统缓存、日志和临时文件";
+"Caches, app logs, and temporary files. macOS system logs are skipped." = "缓存、应用日志和临时文件。macOS 系统日志会跳过。";
 "Application caches and browser data" = "应用程序缓存和浏览器数据";
 "Local AI app logs, caches, and optional history" = "本地 AI 应用的日志、缓存和可选历史";
 "Downloaded mail attachments" = "已下载的邮件附件";
@@ -303,19 +304,19 @@
 " and %lld more" = " 还有 %lld 个";
 "Access granted. Retrying…" = "已授予访问权限。正在重试…";
 "1-tap setup. We'll detect the change automatically." = "前往系统设置授权，我们会自动检测权限变化。";
-"Open Settings & reveal PureMac" = "打开“设置”并显示 PureMac";
+"Open Settings & reveal Cachora" = "打开“设置”并显示 Cachora";
 "We'll open both windows side-by-side." = "将同时打开系统设置和访达。";
-"Turn on PureMac" = "开启 PureMac";
-"Toggle the row that appears." = "打开 PureMac 对应的开关。";
+"Turn on Cachora" = "开启 Cachora";
+"Toggle the row that appears." = "打开 Cachora 对应的开关。";
 "Authenticate" = "验证身份";
 "Touch ID or password." = "Touch ID 或密码。";
 "We auto-retry — no need to come back." = "授权后会自动重试，无需手动返回。";
 "Watching for permission change…" = "正在监视权限变更…";
-"PureMac not in the list?" = "PureMac 不在列表中？";
+"Cachora not in the list?" = "Cachora 不在列表中？";
 "Hide help" = "隐藏帮助";
-"Try this if PureMac doesn't appear:" = "如果 PureMac 没有出现，请尝试：";
+"Try this if Cachora doesn't appear:" = "如果 Cachora 没有出现，请尝试：";
 "Reveal app" = "显示 App";
-"Drag PureMac.app into the list" = "将 PureMac.app 拖入列表";
+"Drag Cachora.app into the list" = "将 Cachora.app 拖入列表";
 "Reset + reprompt" = "重置并重新提示";
 "Clear stale TCC entry" = "清除过时的 TCC 条目";
 "+ %lld more" = "+ 还有 %lld 个";
@@ -346,8 +347,8 @@
 "Surfaces files that outlived the apps that created them." = "查找应用卸载后留下的文件。";
 "One permission, then we're done" = "再授予一项权限即可";
 "Permission granted" = "权限已授予";
-"PureMac can now reach the locations macOS protects by default." = "PureMac 现在可以访问 macOS 默认保护的位置。";
-"macOS hides certain folders from every app until you say otherwise. We need them to find caches and uninstall cleanly." = "macOS 会限制应用访问部分文件夹。授予权限后，PureMac 才能检查其中的缓存和应用关联文件。";
+"Cachora can now reach the locations macOS protects by default." = "Cachora 现在可以访问 macOS 默认保护的位置。";
+"macOS hides certain folders from every app until you say otherwise. We need them to find caches and uninstall cleanly." = "macOS 会限制应用访问部分文件夹。授予权限后，Cachora 才能检查其中的缓存和应用关联文件。";
 "All set — moving you to the next step." = "已准备就绪，正在进入下一步。";
 "Reveal app again" = "再次在访达中显示";
 "Reset permissions" = "重置权限";
@@ -400,12 +401,12 @@
 /* v2.8.3: menu-bar system monitor */
 "System Monitor" = "系统监视器";
 "Show system monitor in menu bar" = "在菜单栏中显示系统监视器";
-"Live CPU, memory, and disk meters in the menu bar. PureMac keeps running in the background while this is on." = "在菜单栏中实时显示 CPU、内存和磁盘使用情况。开启时 PureMac 将在后台持续运行。";
+"Live CPU, memory, and disk meters in the menu bar. Cachora keeps running in the background while this is on." = "在菜单栏中实时显示 CPU、内存和磁盘使用情况。开启时 Cachora 将在后台持续运行。";
 "CPU" = "CPU";
 "Memory" = "内存";
 "Disk" = "磁盘";
-"Open PureMac" = "打开 PureMac";
-"Quit PureMac" = "退出 PureMac";
+"Open Cachora" = "打开 Cachora";
+"Quit Cachora" = "退出 Cachora";
 
 /* Finder Service */
 "Select an application (.app) to uninstall." = "请选择要卸载的应用程序（.app）。";
@@ -439,11 +440,11 @@
 "Make room.\nKeep control." = "释放空间，\n由你做主。";
 "No cleanup run yet" = "尚未清理";
 "No known leftovers" = "未发现应用残留";
-"No removable junk was found in the areas PureMac checked." = "在已检查的位置中未发现可清理的文件。";
+"No removable junk was found in the areas Cachora checked." = "在已检查的位置中未发现可清理的文件。";
 "One scan checks every cleanup tool and prepares a plan for your review." = "一次扫描所有清理类别，生成清理方案供你确认。";
 "Private" = "保护隐私";
-"PureMac builds a reviewable cleanup plan on your Mac. Nothing is removed until you approve it." = "PureMac 在本机生成清理方案，确认后才会删除文件。";
-"PureMac is checking your Mac without removing anything." = "PureMac 正在检查你的 Mac，扫描期间不会删除任何内容。";
+"Cachora builds a reviewable cleanup plan on your Mac. Nothing is removed until you approve it." = "Cachora 在本机生成清理方案，确认后才会删除文件。";
+"Cachora is checking your Mac without removing anything." = "Cachora 正在检查你的 Mac，扫描期间不会删除任何内容。";
 "Ready" = "已就绪";
 "Ready for review" = "待确认";
 "Ready to reclaim" = "可释放空间";
@@ -469,7 +470,7 @@
 "\nAnd %lld more." = "\n另有 %lld 项。";
 "%@ %@ to %@" = "%@：%@ → %@";
 "%@ available" = "可用 %@";
-"%@ could not be removed because PureMac does not have Full Disk Access. Grant Full Disk Access in System Settings, then try again." = "由于 PureMac 没有完全磁盘访问权限，无法删除%@。请在系统设置中授予权限后重试。";
+"%@ could not be removed because Cachora does not have Full Disk Access. Grant Full Disk Access in System Settings, then try again." = "由于 Cachora 没有完全磁盘访问权限，无法删除%@。请在系统设置中授予权限后重试。";
 "%@ did not finish within the allowed time." = "%@ 未能在规定时间内完成。";
 "%@ exited with status %d%@" = "%@ 已退出，状态码为 %d%@";
 "%@ files inspected" = "已检查 %@ 个文件";
@@ -477,7 +478,7 @@
 "%@ found before the scan stopped. Results may be incomplete." = "扫描停止前发现 %@ 可清理内容，结果可能不完整。";
 "%@ of %@" = "已用 %@，共 %@";
 "%@ of %@ candidates · %@ verified" = "已校验 %@ / %@ 个候选文件，共 %@";
-"%@ reviewable" = "可供清理 %@";
+"%@ reviewable" = "待复核 %@";
 "%@ selected. This permanently removes the selected files or runs the listed cleanup actions. It cannot be undone." = "已选择 %@。将永久删除所选文件或执行列出的清理操作，此操作无法撤销。";
 "%@ will move to Trash" = "将把 %@ 移到废纸篓";
 "%lld analyzed" = "已分析 %lld 张";
@@ -529,7 +530,7 @@
 "At login" = "登录时运行";
 "Available" = "可用";
 "Available to review" = "待确认空间";
-"Browser controls must be reviewed inside each browser. PureMac does not change cookies, history, site permissions, or extensions." = "请在各浏览器中检查隐私设置。PureMac 不会更改 Cookie、历史记录、网站权限或扩展。";
+"Browser controls must be reviewed inside each browser. Cachora does not change cookies, history, site permissions, or extensions." = "请在各浏览器中检查隐私设置。Cachora 不会更改 Cookie、历史记录、网站权限或扩展。";
 "Browser privacy" = "浏览器隐私";
 "Building visual signatures" = "正在分析图片特征";
 "Camera" = "相机";
@@ -543,7 +544,7 @@
 "Checked %@. Unknown means the setting could not be confirmed." = "检查时间：%@。“未知”表示无法确认该设置的状态。";
 "Checking" = "正在检查";
 "Checking Homebrew casks" = "正在检查 Homebrew 应用";
-"Checking asks Homebrew to refresh its package data as needed and contacts Homebrew's configured sources. PureMac only lists cask apps managed by this Homebrew installation." = "检查更新时，Homebrew 会按需刷新软件包数据并连接已配置的软件源。PureMac 仅显示由当前 Homebrew 管理的图形应用。";
+"Checking asks Homebrew to refresh its package data as needed and contacts Homebrew's configured sources. Cachora only lists cask apps managed by this Homebrew installation." = "检查更新时，Homebrew 会按需刷新软件包数据并连接已配置的软件源。Cachora 仅显示由当前 Homebrew 管理的图形应用。";
 "Checking your Mac. Nothing is removed during a scan." = "正在检查你的 Mac，扫描期间不会删除任何内容。";
 "Choose Another Folder" = "选择其他文件夹";
 "Choose Folder" = "选择文件夹";
@@ -551,7 +552,7 @@
 "Choose a folder of photos" = "选择照片文件夹";
 "Choose a folder to check for duplicate files" = "选择要查找重复文件的文件夹";
 "Choose a folder to inspect" = "选择要分析的文件夹";
-"Choose a folder. PureMac compares file sizes first, then verifies matching files byte for byte. Nothing is selected or removed automatically." = "选择一个文件夹。PureMac 会先比较文件大小，再校验文件内容。不会自动选择或删除任何文件。";
+"Choose a folder. Cachora compares file sizes first, then verifies matching files byte for byte. Nothing is selected or removed automatically." = "选择一个文件夹。Cachora 会先比较文件大小，再校验文件内容。不会自动选择或删除任何文件。";
 "Choose a photo folder" = "选择照片文件夹";
 "Choose where to look" = "选择要分析的位置";
 "Chrome privacy guide" = "Chrome 隐私指南";
@@ -616,9 +617,9 @@
 "Homebrew finished, but 1 selected app still reports an update." = "Homebrew 已执行完毕，但仍有 1 个所选应用显示可用更新。";
 "Homebrew finished. Check again to verify installed versions." = "Homebrew 已执行完毕。请重新检查以确认已安装的版本。";
 "Homebrew not found" = "未找到 Homebrew";
-"Homebrew produced more output than PureMac could safely retain." = "Homebrew 的输出超出了 PureMac 可处理的大小限制。";
+"Homebrew produced more output than Cachora could safely retain." = "Homebrew 的输出超出了 Cachora 可处理的大小限制。";
 "Homebrew returned an invalid cask identifier: %@" = "Homebrew 返回了无效的应用标识：%@";
-"Homebrew returned update information PureMac could not read." = "无法读取 Homebrew 返回的更新信息。";
+"Homebrew returned update information Cachora could not read." = "无法读取 Homebrew 返回的更新信息。";
 "Homebrew updated the %lld selected apps." = "Homebrew 已更新所选的 %lld 个应用。";
 "Homebrew updated the selected app." = "Homebrew 已更新所选应用。";
 "Homebrew was not found in a standard installation location." = "未在常用安装位置找到 Homebrew。";
@@ -632,11 +633,11 @@
 "Inspected %@ files in %@. %@" = "已检查 %2$@ 中的 %1$@ 个文件。%3$@";
 "Inspecting startup items and local snapshots…" = "正在检查启动项和本地快照…";
 "Inspection stopped" = "检查已停止";
-"Install Homebrew to check cask apps here. Apps from the App Store and direct downloads use their own update channels." = "安装 Homebrew 后可在此检查其管理的应用。App Store 应用和直接下载的应用需要通过各自的渠道更新。";
+"Homebrew is an optional tool for managing Mac software. Apps installed through Homebrew can be updated here." = "Homebrew 是 macOS 上可选的软件管理工具。用它安装的应用可以在这里统一更新。";
 "Installed" = "已安装";
 "Installed %@" = "已安装 %@";
 "Keep" = "保留";
-"Keep PureMac open until this pass finishes." = "请保持 PureMac 运行，直到本次清理完成。";
+"Keep Cachora open until this pass finishes." = "请保持 Cachora 运行，直到本次清理完成。";
 "Keep alive" = "保持运行";
 "Largest first" = "从大到小";
 "Largest items" = "空间占用排行";
@@ -718,17 +719,17 @@
 "Protected copy" = "保留的副本";
 "Protected system locations and processes are restricted." = "受保护的系统位置和进程已受到访问限制。";
 "Protection" = "安全检查";
-"PureMac builds small local thumbnails, compares their visual structure and color, then groups likely matches for review." = "PureMac 会在本机生成缩略图，比较画面结构与颜色，将可能相似的照片分组供你查看。";
-"PureMac checks caches, logs, developer data, downloads, and Trash. You review the result before anything is removed." = "扫描缓存、日志、开发数据、下载内容和废纸篓。先查看结果，再决定清理哪些项目。";
-"PureMac compares local image thumbnails without changing your photos." = "PureMac 在本机比较图片缩略图，不会修改照片。";
-"PureMac could not confirm the local XProtect installation." = "PureMac 无法确认本机是否安装了 XProtect。";
-"PureMac could not read this setting." = "PureMac 无法读取此设置。";
-"PureMac did not find removable items in the selected scan areas." = "PureMac 在所选扫描范围内未发现可清理的项目。";
-"PureMac measures allocated disk space without changing files." = "PureMac 会统计实际磁盘占用，不会修改文件。";
-"PureMac reads the selected folder and does not change anything during a scan." = "PureMac 只读取所选文件夹，扫描期间不会修改任何内容。";
-"PureMac will ask Homebrew for available versions when you start the check." = "开始检查后，PureMac 将通过 Homebrew 查询可用版本。";
-"PureMac will move the selected app and related files to the Trash. Items requiring administrator authorization may be permanently deleted. Review the selection before continuing." = "PureMac 会将所选应用及其关联文件移到废纸篓。需要管理员授权的项目可能会被永久删除。请确认所选内容后再继续。";
-"PureMac.app" = "PureMac.app";
+"Cachora builds small local thumbnails, compares their visual structure and color, then groups likely matches for review." = "Cachora 会在本机生成缩略图，比较画面结构与颜色，将可能相似的照片分组供你查看。";
+"Cachora checks caches, logs, developer data, downloads, and Trash. You review the result before anything is removed." = "扫描缓存、日志、开发数据、下载内容和废纸篓。先查看结果，再决定清理哪些项目。";
+"Cachora compares local image thumbnails without changing your photos." = "Cachora 在本机比较图片缩略图，不会修改照片。";
+"Cachora could not confirm the local XProtect installation." = "Cachora 无法确认本机是否安装了 XProtect。";
+"Cachora could not read this setting." = "Cachora 无法读取此设置。";
+"Cachora did not find removable items in the selected scan areas." = "Cachora 在所选扫描范围内未发现可清理的项目。";
+"Cachora measures allocated disk space without changing files." = "Cachora 会统计实际磁盘占用，不会修改文件。";
+"Cachora reads the selected folder and does not change anything during a scan." = "Cachora 只读取所选文件夹，扫描期间不会修改任何内容。";
+"Cachora will ask Homebrew for available versions when you start the check." = "开始检查后，Cachora 将通过 Homebrew 查询可用版本。";
+"Cachora will move the selected app and related files to the Trash. Items requiring administrator authorization may be permanently deleted. Review the selection before continuing." = "Cachora 会将所选应用及其关联文件移到废纸篓。需要管理员授权的项目可能会被永久删除。请确认所选内容后再继续。";
+"Cachora.app" = "Cachora.app";
 "Ready for protected locations" = "可访问受保护的位置";
 "Refresh disk information" = "刷新存储信息";
 "Refreshing package data and comparing installed versions." = "正在刷新软件包数据并比较已安装的版本。";
@@ -820,7 +821,7 @@
 "System daemon" = "系统守护进程";
 "System update" = "系统更新";
 "System-wide agent" = "全局启动代理";
-"The analyzed photos did not meet PureMac's visual similarity threshold." = "已分析的照片未达到 PureMac 的相似度阈值。";
+"The analyzed photos did not meet Cachora's visual similarity threshold." = "已分析的照片未达到 Cachora 的相似度阈值。";
 "The audit reads current settings and does not change your Mac. It is a configuration review, not a malware scan." = "此检查只读取当前设置，不会修改你的 Mac。它用于检查安全配置，不会扫描恶意软件。";
 "The check timed out." = "检查超时。";
 "The copy marked Keep is missing or changed: %@" = "标记为保留的副本已丢失或发生变化：%@";
@@ -874,12 +875,12 @@
 /* Additional interface strings. */
 "%lld processes" = "%lld 个进程";
 "1 process" = "1 个进程";
-"A PureMac update is available" = "A PureMac update is available";
+"A Cachora update is available" = "A Cachora update is available";
 "About these readings" = "About these readings";
 "App memory shows resident memory, including shared pages. App totals can differ from the summary." = "App memory shows resident memory, including shared pages. App totals can differ from the summary.";
 "Apps and processes" = "Apps and processes";
 "Build %@" = "Build %@";
-"CPU - Memory" = "CPU - Memory";
+"CPU - Memory" = "CPU 与内存";
 "CPU uses the Mac’s total capacity. App helpers are grouped with their app." = "CPU uses the Mac’s total capacity. App helpers are grouped with their app.";
 "CPU values appear after the next sample." = "CPU values appear after the next sample.";
 "Check access" = "Check access";
@@ -888,36 +889,36 @@
 "Collapsed" = "Collapsed";
 "Copy command" = "Copy command";
 "Download (DMG / ZIP)" = "Download (DMG / ZIP)";
-"Download the new app from the release page, quit PureMac, then replace it in Applications." = "Download the new app from the release page, quit PureMac, then replace it in Applications.";
+"Download the new app from the release page, quit Cachora, then replace it in Applications." = "Download the new app from the release page, quit Cachora, then replace it in Applications.";
 "Expanded" = "Expanded";
 "GitHub is receiving too many requests. Please try again later." = "GitHub is receiving too many requests. Please try again later.";
 "Homebrew" = "Homebrew";
-"Keep PureMac up to date" = "Keep PureMac up to date";
-"Last checked: %@" = "Last checked: %@";
+"Keep Cachora up to date" = "Keep Cachora up to date";
+"Last checked: %@" = "上次检查 %@";
 "Live updates paused" = "Live updates paused";
 
-"Make PureMac work your way." = "Make PureMac work your way.";
+"Make Cachora work your way." = "按你的习惯设置 Cachora。";
 "Measuring apps and processes…" = "Measuring apps and processes…";
 "Memory estimate includes active, wired and compressed memory." = "Memory estimate includes active, wired and compressed memory.";
-"Memory in use" = "Memory in use";
+"Memory in use" = "已用内存";
 "No matching apps or processes" = "No matching apps or processes";
-"No stable PureMac app release was found. Try again later." = "No stable PureMac app release was found. Try again later.";
+"No stable Cachora app release was found. Try again later." = "No stable Cachora app release was found. Try again later.";
 "Open release page" = "Open release page";
 "Paused" = "Paused";
 "Process information is unavailable. Try Activity Monitor for more detail." = "Process information is unavailable. Try Activity Monitor for more detail.";
-"PureMac %@ is available" = "PureMac %@ is available";
+"Cachora %@ is available" = "Cachora %@ is available";
 "Restart to apply your language" = "Restart to apply your language";
 "Review Full Disk Access" = "Review Full Disk Access";
 "Review launch at login" = "Review launch at login";
 "Search apps and processes" = "Search apps and processes";
-"Settings" = "Settings";
+"Settings" = "设置";
 "Settings need attention" = "Settings need attention";
 "Settings to review" = "Settings to review";
 "Show all apps and processes" = "Show all apps and processes";
 "Show top 8" = "Show top 8";
 "Some of this app's processes have no CPU reading yet, so this total is partial." = "Some of this app's processes have no CPU reading yet, so this total is partial.";
 "Some processes started or stopped since the last sample. Their values appear in the next one." = "Some processes started or stopped since the last sample. Their values appear in the next one.";
-"Sort by" = "Sort by";
+"Sort by" = "排序";
 "System processes are not listed. Use Activity Monitor for those." = "System processes are not listed. Use Activity Monitor for those.";
 "The release service is unavailable. Please try again later." = "The release service is unavailable. Please try again later.";
 "This build has no readable version. Open the releases page to check manually." = "This build has no readable version. Open the releases page to check manually.";
@@ -925,7 +926,7 @@
 "Update method" = "Update method";
 
 "View releases" = "View releases";
-"You're using the latest available version of PureMac." = "You're using the latest available version of PureMac.";
+"You're using the latest available version of Cachora." = "You're using the latest available version of Cachora.";
 
 /* Local scan coverage diagnostics */
 "Scan incomplete" = "扫描不完整";
@@ -996,7 +997,6 @@
 "Your files stay on this Mac" = "文件留在本机";
 "Scans and recovery records stay on your Mac. This beta has no analytics, account, payment, or automatic cleanup. Checking for updates contacts GitHub only when you choose it." = "扫描结果和恢复记录保存在本机。内测版没有统计分析、账号、付款或自动清理。只有主动检查更新时才访问 GitHub。";
 "Recovery copies still use disk space. Permanent deletion cannot be undone. Recovery is not a separate backup." = "恢复副本仍占磁盘空间，永久删除无法撤销。恢复区不是独立备份。";
-"Built on PureMac (MIT). An independent community project." = "基于 PureMac（MIT）独立开发。";
 "Upstream source and license" = "上游源码与许可";
 "Project and feedback" = "项目与反馈";
 "App updates" = "应用更新";
@@ -1006,3 +1006,185 @@
 "No compatible app release was found. Try again later." = "尚未找到适合此版本的发布，请稍后重试。";
 "Version %@ is available" = "新版本 %@ 可用";
 "You're using the latest available version for this channel." = "当前已是此更新渠道的最新版本。";
+
+// Full workspace
+"Open this tool in Cachora" = "在轻盘中打开此工具";
+"Use the test files to try scanning, cleanup, and recovery." = "可以用测试文件体验扫描、清理和恢复。";
+"Move the selected app and related files to the Trash." = "将选中的应用及相关文件移到废纸篓。";
+"Scan test files" = "扫描测试文件";
+"Apple Features" = "Apple 功能";
+"Applications & system" = "应用与系统";
+"Review cleanup" = "检查可清理项目";
+"Storage, cleanup, and system tools." = "存储空间、清理与系统工具。";
+"Check %lld categories for caches, logs, and other removable files. Review the results before deleting anything." = "检查 %lld 类缓存、日志和其他文件，清理前先复核结果。";
+"Browse folders by size" = "按大小查看文件夹";
+"Review Siri, image creation, and extras" = "查看 Siri、图像创作等功能";
+"Review files with identical contents" = "查看内容相同的文件";
+"Remove apps and related files" = "卸载应用及关联文件";
+"Compare possible matches" = "对比可能相似的照片";
+"Check Homebrew-managed apps" = "检查 Homebrew 管理的应用";
+"Check macOS security settings" = "查看 macOS 安全设置";
+"View processes and startup items" = "查看进程和启动项";
+
+/* Functional sample workspace and removal review */
+"Selected items move to a Trash folder inside the test workspace." = "选中的项目会移入测试工作区专用的废纸篓。";
+"Review the paths before moving the selected items to the Trash." = "移入废纸篓前，请核对所选项目的路径。";
+"Items requiring administrator authorization may be permanently deleted." = "需要管理员授权的项目可能会被永久删除。";
+"App matching is an estimate. Review the files before moving them." = "应用归属是根据文件名估算的，请先核对文件。";
+"The protected copy in every group stays in place." = "每组的保留副本都会留在原处。";
+"Every group keeps at least one photo." = "每组至少保留一张照片。";
+"Review %lld selected photos" = "复核所选的 %lld 张照片";
+"Review selected photos" = "复核所选照片";
+"%lld photos moved to Trash." = "已将 %lld 张照片移入废纸篓。";
+"Compare local photos side by side. You can select individual photos for review and move them to the Trash." = "并排比对本地照片，可以逐张选中并复核后移入废纸篓。";
+"System settings and external guides are available in the regular app." = "请在正常版中打开系统设置或外部指南。";
+"File removal always requires review." = "移动文件前需要复核。";
+"Information only" = "仅供查看";
+"This item cannot be moved to Recovery." = "此项目无法移入恢复区。";
+
+/* Sample updates and Apple storage */
+"Features" = "功能";
+"Find a feature" = "查找功能";
+"Review optional features and the storage used by Apple downloads." = "查看可选的 Apple 功能和下载内容占用的空间。";
+"Apple Intelligence models" = "Apple 智能模型";
+"Downloaded screen savers" = "已下载的屏幕保护程序";
+"GarageBand support files" = "GarageBand 支持文件";
+"iPhone and iPad backups" = "iPhone 和 iPad 备份";
+"Measure storage" = "测量存储占用";
+"Measure again" = "重新测量";
+"Find backups" = "查找备份";
+"Review selected backups" = "复核所选备份";
+"Review complete local backups individually. Selected backups move to the Trash after confirmation." = "逐个检查已完成的本地备份。确认后，所选备份将移入废纸篓。";
+"%lld backups moved to the Trash" = "已将 %lld 份备份移入废纸篓";
+"Backups changed. Measure storage again for current sizes." = "备份已变化，请重新测量占用。";
+"Unavailable" = "无法读取";
+
+/* Live system status and possible leftovers */
+"Test mode — file moves use samples; system status is live" = "测试模式 · 只移动样本文件，系统状态为实测";
+"Review possible app leftovers" = "查看疑似应用残留";
+"Check for cache and log files with an app identifier that no installed app claims." = "查找带应用标识的缓存和日志，并排除已安装应用。";
+"Homebrew available" = "已找到 Homebrew";
+"Open the regular app to check or upgrade Homebrew apps." = "请在正常版检查或更新 Homebrew 应用。";
+"Measure the generated Apple storage files in this test workspace." = "测量此工作区里生成的 Apple 存储样本。";
+
+/* Review-only scheduled scans */
+"Scheduled scans are available in the regular app." = "请在正常版设置定时扫描。";
+"Runs while Cachora is open. Review the results before moving any files." = "轻盘运行时按计划扫描。移动文件前需要复核结果。";
+"Notifications are unavailable. Scheduled scans still run." = "当前无法发送通知，定时扫描仍可运行。";
+"Next run" = "下次扫描";
+
+/* Application update sources and results */
+"App Store and Homebrew" = "App Store 和 Homebrew";
+"Cachora Updates" = "Cachora 更新";
+"Check for Cachora Updates" = "检查 Cachora 更新";
+"Check Homebrew Apps" = "检查 Homebrew 应用";
+"Check Homebrew apps again before updating." = "请重新检查 Homebrew 应用后再更新。";
+"Check Homebrew apps again to see which updates are still available." = "重新检查 Homebrew 应用，确认还有哪些更新。";
+"Check Homebrew apps again to verify the installed versions." = "重新检查 Homebrew 应用，确认已安装的版本。";
+"Details" = "详情";
+"For apps downloaded from a website, check for updates in the app or on the developer’s website." = "从网站下载安装的应用，可在应用内或开发者官网检查更新。";
+"No Homebrew app updates found" = "未发现可更新的 Homebrew 应用";
+"Previous results" = "上次检查结果";
+"Update complete" = "更新完成";
+"Update failed" = "更新失败";
+"Update result unverified" = "更新结果待确认";
+"Updates still available" = "仍有待更新";
+"Verifying Homebrew updates…" = "正在核对 Homebrew 更新结果…";
+
+/* Items skipped during cleanup */
+"Changed or missing items were skipped. Scan again before cleaning." = "已跳过发生变化或已不存在的项目。请重新扫描后再清理。";
+"Protected items or items without move permission were skipped." = "已跳过受保护或无权限移动的项目。";
+
+/* Recent scan, photo summary, and Apple storage review */
+"Just now" = "刚刚";
+"%lld analyzed · %lld matched" = "已分析 %lld 张 · 匹配到 %lld 张";
+"%@ in matched photos · %lld skipped" = "相似照片占用 %@ · 已跳过 %lld 项";
+"The known generative-model folder. macOS manages these assets; this size is not a promise of space you can recover." = "这是 macOS 管理的生成模型目录。此处仅测量占用，可释放的空间取决于系统管理。";
+"Downloaded Apple aerial assets. Change the selected wallpaper or screen saver in System Settings." = "已下载的 Apple 航拍素材。可在「系统设置」更换墙纸或屏幕保护程序。";
+"Sound libraries and support files may be shared with music apps. Review Music Creation in Storage settings." = "音乐应用可能共用声音资源库和支持文件。可在「储存空间」设置中查看「音乐创作」。";
+"Loops used by GarageBand and Logic Pro. Review Music Creation in Storage settings before removing sounds." = "GarageBand 和 Logic Pro 使用的乐段。移除声音素材前，请先在「储存空间」设置中查看「音乐创作」。";
+"Local device backups can contain your only restore copy. Review individual backups below or use Finder's Manage Backups." = "本地设备备份可能是唯一可用的恢复副本。可在下方逐个查看，也可使用访达的「管理备份」。";
+"Measure known locations without deleting files. These sizes are not a recoverable-space estimate." = "查看已知位置的实际占用。测量过程中会保留原文件。";
+"Measuring Apple storage…" = "正在测量 Apple 存储占用…";
+"Storage measurement stopped." = "已停止测量存储占用。";
+"Storage measurement stopped. Previous results are still shown." = "已停止测量，仍显示上次结果。";
+"Partial measurement: %lld skipped, %lld inaccessible." = "仅测得部分占用。已跳过 %lld 项，另有 %lld 项无法读取。";
+"Entry limit reached." = "已达到扫描项目数上限。";
+"This location could not be measured. Permissions or protected system storage may prevent access." = "无法测量此位置。可能缺少读取权限，或该位置受系统保护。";
+"Checking local backups…" = "正在查找本地备份…";
+"Checking and moving selected backups to the Trash…" = "正在核对所选备份并移入废纸篓…";
+"Backup scan stopped. Scan again before selecting backups." = "已停止查找备份。请重新扫描后再选择。";
+"Backup removal is available after the current scan or cleanup finishes." = "当前扫描或清理完成后，即可移除备份。";
+"%lld backup locations could not be included" = "%lld 个备份位置未纳入结果";
+"No complete local device backups were found." = "未找到已完成的本地设备备份。";
+"No backups are available to select. Review the scan issues above." = "没有可选择的备份。请查看上方的扫描问题。";
+"Modified %@" = "修改于 %@";
+"Move this backup to the Trash?" = "将这份备份移入废纸篓？";
+"Move %lld backups to the Trash?" = "将 %lld 份备份移入废纸篓？";
+"Removing your only backup prevents you from restoring that device from this Mac. Disconnect devices and stop any active backups before continuing." = "如果移走唯一的备份，就无法从这台 Mac 恢复该设备。继续前，请停止正在进行的备份，并断开设备连接。";
+"Cachora rechecks each selected backup before moving it. Emptying the Trash is a separate action." = "Cachora 会在移动前重新核对每份所选备份。清空废纸篓需要另行操作。";
+"Wait for the current scan or cleanup to finish before moving backups." = "请等待当前扫描或清理完成，再将备份移入废纸篓。";
+"Finishing backup removal. New scans are available when it stops." = "正在完成备份移除。结束后可以开始新扫描。";
+"Moving backups to the Trash does not free disk space. Emptying the Trash is a separate action." = "移入废纸篓的备份仍会占用空间，清空废纸篓后才会释放。";
+"Backup removal was cancelled. Remaining backups were left in place." = "已取消移除备份，剩余备份仍在原处。";
+"Dismiss report" = "关闭报告";
+
+/* Duplicate file review and bulk selection */
+"Suggested action" = "处理建议";
+"Keep one file in each group. Cachora suggests the earliest modified file, using the path to break ties." = "每组保留一份。建议保留修改时间最早的文件，时间相同则按路径排序。";
+"Review and restore instructions" = "处理与恢复步骤";
+"Open Details to check the full paths and modification dates. Use Keep This File to change the file you want to keep." = "打开「详情」核对完整路径和修改时间。需要换一份保留时，点击「保留此文件」。";
+"Select extra copies, then review the move and keep lists before confirming." = "选中多余副本后，打开「复核所选副本」，确认要移动和保留的路径。";
+"To restore a moved copy, move it from the Trash back to its original folder." = "需要恢复时，可在废纸篓中找到副本，将它移回原来的文件夹。";
+"Keep %@" = "保留 %@";
+"Suggested to keep" = "建议保留";
+"Keep This File" = "保留此文件";
+"Keep one file in each group" = "每组保留一份";
+"Selected size: %@" = "所选副本共 %@";
+"Select All Extra Copies" = "全选副本";
+"Review Selected Copies" = "复核所选副本";
+"%lld files totaling %@ were moved." = "已移动 %lld 个文件，共 %@。";
+"Review the move results" = "复核移动结果";
+"Copies to move" = "将移入废纸篓";
+"Copies to keep" = "保留在原处";
+
+/* Duplicate result filters and reversible ignore rules */
+"Ignored groups (%lld)" = "已忽略（%lld）";
+"%lld ignore records expired. Scan results have been checked again." = "%lld 条忽略记录已失效，扫描结果已重新核对。";
+"All duplicate groups are ignored" = "当前重复组均已忽略";
+"Change the filters or undo an ignored group to review more files." = "可调整筛选条件，或在「已忽略」中撤销忽略。";
+"Reset Filters" = "重置筛选";
+"Search file names or paths" = "搜索文件名或路径";
+"File type" = "文件类型";
+"Reviewable Size" = "可处理大小";
+"Modification Date" = "组内最新修改时间";
+"Ascending" = "升序";
+"Descending" = "降序";
+"Only matching extra copies can be selected. Changing filters deselects hidden files; the kept copy stays visible." = "仅可勾选命中的多余副本。调整筛选会取消隐藏文件的勾选，保留项始终显示。";
+"All File Types" = "所有类型";
+"Images" = "图片";
+"Videos" = "视频";
+"Audio" = "音频";
+"Archives" = "压缩文件";
+"Ignored duplicate groups" = "已忽略的重复组";
+"Ignored groups stay hidden in future scans of the same folder. Changed files or group members will be reviewed again after rescanning." = "再次扫描同一文件夹时，将隐藏这些重复组。文件内容、状态或组成员变化后，忽略记录会失效。";
+"No ignored groups" = "暂无忽略记录";
+"%lld ignored files" = "已忽略 %lld 个文件";
+"Undo Ignore" = "撤销忽略";
+"Undo makes the group available in the current results or the next scan. It does not select or move files." = "撤销后将在当前结果或下次扫描中显示，不会自动勾选或移动文件。";
+"Could not load ignored groups. All scan results remain available." = "忽略记录读取失败，扫描结果仍会完整显示。可重试读取。";
+"Could not save ignored groups. Your ignore settings were not changed." = "忽略记录保存失败，本次设置未保存。请重试。";
+"Ignore This Group" = "忽略此组";
+"%lld nonmatching files hidden" = "已隐藏 %lld 个未命中文件";
+"Kept copy shown for reference; outside the filter" = "此保留项未命中筛选，仅供核对";
+"%lld matching extra copies · Keep one per group" = "命中 %lld 份多余副本 · 每组保留一份";
+"Select All Filtered Copies" = "全选筛选结果";
+"Changed groups are available for review, but the expired ignore records could not be saved." = "变化的重复组已重新显示，但失效的忽略记录未能保存。";
+"Choose a folder. Cachora compares file sizes and SHA-256 content hashes. Nothing is selected or removed automatically." = "选择一个文件夹。轻盘会比较文件大小和内容校验值，不会自动勾选或移动文件。";
+
+/* Partial duplicate move results */
+"Stop moving" = "停止移动";
+"Move stopped" = "已停止移动";
+"Remaining files were left in place. Moved copies can be restored from the Trash." = "剩余文件仍在原处，已移动的副本可从废纸篓恢复。";
+
+"Purgeable space is managed by macOS and is not included in cleanup." = "可清除空间由 macOS 管理，不包含在本次清理范围内。";

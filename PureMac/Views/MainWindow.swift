@@ -7,7 +7,6 @@ struct MainWindow: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var cleanupExpanded = false
     @State private var advancedToolsExpanded = false
-    @State private var showRecoveryCenter = false
     @FocusState private var focusedSection: AppSection?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -31,6 +30,7 @@ struct MainWindow: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             sidebar
+                .disabled(appState.duplicateMoveInProgress)
                 .navigationSplitViewColumnWidth(min: 232, ideal: 248, max: 288)
         } detail: {
             detailContainer
@@ -38,14 +38,20 @@ struct MainWindow: View {
         .frame(minWidth: 960, minHeight: 640)
         .tint(Tint.accent)
         .toolbar {
-            Button { showRecoveryCenter = true } label: {
-                Label("Recovery", systemImage: "clock.arrow.circlepath")
+            ToolbarItem(placement: .primaryAction) {
+                Button { selectSection(.settings) } label: {
+                    Label("Settings", systemImage: selectedSection == .settings ? "gearshape.fill" : "gearshape")
+                        .labelStyle(.iconOnly)
+                }
+                .help("Settings")
+                .focused($focusedSection, equals: .settings)
+                .accessibilityIdentifier(accessibilityIdentifier(for: .settings))
+                .disabled(appState.duplicateMoveInProgress)
+                .accessibilityAddTraits(selectedSection == .settings ? .isSelected : [])
             }
         }
-        .sheet(isPresented: $showRecoveryCenter) {
-            RecoveryCenterView(model: appState.recoveryCenter)
-        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            guard !appState.cleanupEnvironment.isFixture else { return }
             appState.checkFullDiskAccess()
             permission.refreshStatus()
         }
@@ -68,7 +74,7 @@ struct MainWindow: View {
             }
         }
         .onChange(of: appState.cleanErrorIsFDAFixable) { isFDAFixable in
-            guard isFDAFixable else { return }
+            guard isFDAFixable, !appState.cleanupEnvironment.isFixture else { return }
             let pending = appState.pendingPermissionRetryItems
             appState.cleanError = nil
             appState.cleanErrorIsFDAFixable = false
@@ -105,10 +111,17 @@ struct MainWindow: View {
                     emphasized: true
                 )
                 navRow(
+                    section: .recovery,
+                    label: "Recovery",
+                    icon: "clock.arrow.circlepath",
+                    tint: Tint.accent,
+                    badge: nil
+                )
+                navRow(
                     section: .protection,
                     label: "Protection",
                     icon: "shield.checkered",
-                    tint: Tint.green,
+                    tint: Tint.accent,
                     badge: nil
                 )
                 navRow(
@@ -239,7 +252,7 @@ struct MainWindow: View {
         .environment(\.defaultMinListRowHeight, 35)
         .scrollContentBackground(.hidden)
         .background(sidebarBackground)
-        .navigationTitle("PureMac")
+        .navigationTitle(Text(verbatim: ProductIdentity.name))
         .onMoveCommand(perform: moveSelection)
         .onChange(of: selectedSection) { section in
             guard case let .cleaning(category)? = section else { return }
@@ -251,9 +264,6 @@ struct MainWindow: View {
                     advancedToolsExpanded = true
                 }
             }
-        }
-        .safeAreaInset(edge: .bottom) {
-            sidebarFooter
         }
     }
 
@@ -301,6 +311,7 @@ struct MainWindow: View {
     private var visibleSections: [AppSection] {
         var sections: [AppSection] = [
             .cleaning(.smartScan),
+            .recovery,
             .protection,
             .performance,
             .appleFeatures,
@@ -317,17 +328,18 @@ struct MainWindow: View {
         if advancedToolsExpanded {
             sections.append(contentsOf: Self.advancedCategories.map(AppSection.cleaning))
         }
-        sections.append(.settings)
         return sections
     }
 
     private func selectSection(_ section: AppSection) {
+        guard !appState.duplicateMoveInProgress else { return }
         selectedSection = section
         focusedSection = section
     }
 
     private func accessibilityIdentifier(for section: AppSection) -> String {
         switch section {
+        case .recovery: return "sidebar.recovery"
         case .apps: return "sidebar.uninstaller"
         case .orphans: return "sidebar.leftovers"
         case .spaceExplorer: return "sidebar.spaceExplorer"
@@ -336,7 +348,7 @@ struct MainWindow: View {
         case .protection: return "sidebar.protection"
         case .performance: return "sidebar.performance"
         case .appleFeatures: return "sidebar.appleFeatures"
-        case .settings: return "sidebar.settings"
+        case .settings: return "toolbar.settings"
         case .appUpdates: return "sidebar.appUpdates"
         case .cleaning(let category): return "sidebar.cleaning.\(category.id)"
         }
@@ -381,29 +393,6 @@ struct MainWindow: View {
             .ignoresSafeArea()
     }
 
-    private var sidebarFooter: some View {
-        Button {
-            selectSection(.settings)
-        } label: {
-            SidebarNavRow(
-                label: "Settings",
-                icon: "gearshape.fill",
-                tint: Tint.accent,
-                badge: nil,
-                isSelected: selectedSection == .settings,
-                emphasized: false
-            )
-        }
-        .buttonStyle(.plain)
-        .focused($focusedSection, equals: .settings)
-        .accessibilityIdentifier("sidebar.settings")
-        .accessibilityAddTraits(selectedSection == .settings ? .isSelected : [])
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .background(.regularMaterial)
-        .overlay(alignment: .top) { Divider() }
-    }
-
     private var sidebarLabelColor: Color {
         colorScheme == .dark ? Color.white.opacity(0.90) : Color.black.opacity(0.84)
     }
@@ -411,7 +400,15 @@ struct MainWindow: View {
     @ViewBuilder
     private var detailContainer: some View {
         VStack(spacing: 0) {
-            if selectedSection != .settings && !appState.hasFullDiskAccess && !appState.fdaBannerDismissed {
+            if appState.cleanupEnvironment.isFixture {
+                Label("Test mode — file moves use samples; system status is live", systemImage: "testtube.2")
+                    .font(.callout.weight(.medium))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(.regularMaterial)
+            } else if selectedSection != .settings && selectedSection != .recovery && selectedSection != .appUpdates
+                        && !appState.hasFullDiskAccess && !appState.fdaBannerDismissed {
                 accessBanner
                     .padding(.horizontal, 20)
                     .padding(.top, 14)
@@ -430,25 +427,31 @@ struct MainWindow: View {
 
     @ViewBuilder
     private var detailView: some View {
+        let sampleHome = appState.cleanupEnvironment.sampleHome
+        let sampleTrash = appState.cleanupEnvironment.sampleTrash
         switch selectedSection {
+        case .recovery:
+            RecoveryCenterView(model: appState.recoveryCenter)
         case .apps:
             AppListView()
         case .orphans:
             OrphanListView()
         case .spaceExplorer:
-            SpaceExplorerView()
+            SpaceExplorerView(sampleFolder: sampleHome?.appendingPathComponent("Documents/Sample Files"))
         case .duplicates:
-            DuplicateFinderView()
+            DuplicateFinderView(finder: DuplicateFinder(trashHandler: sampleTrash),
+                                sampleFolder: sampleHome?.appendingPathComponent("Documents/Sample Files"))
         case .similarPhotos:
-            SimilarPhotosView()
+            SimilarPhotosView(finder: SimilarPhotoFinder(trashHandler: sampleTrash),
+                              sampleFolder: sampleHome?.appendingPathComponent("Pictures"))
         case .protection:
             ProtectionView()
         case .performance:
-            PerformanceView()
+            PerformanceView(allowsSnapshotRemoval: sampleHome == nil)
         case .appleFeatures:
-            AppleFeaturesView()
+            AppleFeaturesView(sampleHome: sampleHome, sampleTrash: sampleTrash)
         case .appUpdates:
-            AppUpdatesView()
+            AppUpdatesView(updater: appState.applicationUpdater, permitsPackageOperations: sampleHome == nil)
         case .settings:
             SettingsView()
         case .cleaning(let category):
@@ -459,7 +462,7 @@ struct MainWindow: View {
             }
         case nil:
             EmptyStateView(
-                "PureMac",
+                "Cachora",
                 systemImage: "internaldrive",
                 description: "Select a tool from the sidebar."
             )
@@ -482,9 +485,8 @@ struct MainWindow: View {
                     appState.checkFullDiskAccess()
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .accentButtonStyle()
             .controlSize(.regular)
-            .tint(Tint.accent)
             Button {
                 appState.fdaBannerDismissed = true
             } label: {
@@ -517,6 +519,7 @@ private struct SidebarNavRow: View {
     let isSelected: Bool
     let emphasized: Bool
 
+    private let rowShape = RoundedRectangle(cornerRadius: 9, style: .continuous)
     @State private var hovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -546,23 +549,36 @@ private struct SidebarNavRow: View {
         .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
         .padding(.horizontal, 8)
         .background {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(rowFill)
+            if isSelected {
+                selectionBackground
+            } else if hovering {
+                rowShape.fill(Color.primary.opacity(0.035))
+            }
         }
-        .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .contentShape(rowShape)
         .animation(reduceMotion ? nil : MotionTokens.snappy, value: hovering)
         .animation(reduceMotion ? nil : MotionTokens.snappy, value: isSelected)
         .onHover { hovering = $0 }
     }
 
-    private var rowFill: Color {
-        if isSelected {
-            return Tint.accent.opacity(colorScheme == .dark ? 0.16 : 0.10)
+    @ViewBuilder
+    private var selectionBackground: some View {
+        #if canImport(SwiftUI, _version: 7.0)
+        if #available(macOS 26.0, *) {
+            Color.clear.glassEffect(.regular.tint(Tint.accent.opacity(0.20)), in: rowShape)
+        } else {
+            materialSelection
         }
-        if hovering {
-            return Color.primary.opacity(0.035)
-        }
-        return .clear
+        #else
+        materialSelection
+        #endif
+    }
+
+    private var materialSelection: some View {
+        rowShape.fill(.regularMaterial)
+            .overlay {
+                rowShape.fill(Tint.accent.opacity(colorScheme == .dark ? 0.18 : 0.12))
+            }
     }
 
     private var labelColor: Color {

@@ -11,7 +11,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build-local"
 FILES = ["README.md", "LICENSE", "THIRD-PARTY-NOTICES.md", "PRIVACY.md", "CONTRIBUTING.md",
-         ".gitignore", "project.yml", "docs/BETA-RELEASE.md", "docs/RELEASE-STATUS.md",
+         ".gitignore", "project.yml", "docs/BETA-RELEASE.md", "docs/RELEASE-STATUS.md", "docs/MACOS-DISTRIBUTION.md",
          "release/product.json", "release/RELEASE-NOTES.md"]
 FOLDERS = ["PureMac", "PureMacTests", "PureMac.xcodeproj", "scripts", ".github"]
 

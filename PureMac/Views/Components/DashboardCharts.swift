@@ -258,9 +258,9 @@ struct SuccessMedal: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(tint.opacity(0.11))
+                .fill(.regularMaterial)
             Circle()
-                .strokeBorder(tint.opacity(0.18), lineWidth: 1)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
             Image(systemName: "checkmark")
                 .font(.system(size: size * 0.34, weight: .semibold))
                 .foregroundStyle(tint)

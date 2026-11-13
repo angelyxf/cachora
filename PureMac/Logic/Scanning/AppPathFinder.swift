@@ -128,6 +128,7 @@ class AppPathFinder {
     // MARK: - Location Processing
 
     private func processLocation(_ location: String, currentDepth: Int, maxDepth: Int, isLibraryRootSearch: Bool) {
+        if locations.sampleHome != nil, (try? RecoveryFileSystem.checkDirectory(location)) == nil { return }
         guard let contents = try? FileManager.default.contentsOfDirectory(atPath: location) else {
             return
         }
@@ -137,6 +138,8 @@ class AppPathFinder {
 
         for item in contents {
             let itemURL = URL(fileURLWithPath: location).appendingPathComponent(item)
+            if locations.sampleHome != nil,
+               (try? itemURL.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != false { continue }
             let normalizedName: String
 
             if itemURL.hasDirectoryPath || itemURL.pathExtension.isEmpty {
@@ -305,6 +308,7 @@ class AppPathFinder {
     /// Discovers sandboxed app containers that belong to this app by checking
     /// both UUID-named containers (via metadata plist) and name-matched containers.
     private func discoverContainers() -> [URL] {
+        guard locations.sampleHome == nil else { return [] }
         var containers: [URL] = []
 
         guard let containersPath = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)
@@ -344,6 +348,7 @@ class AppPathFinder {
     /// Applies per-app force-include and force-exclude path overrides after
     /// the main scan has completed.
     private func applyConditions() {
+        guard locations.sampleHome == nil else { return }
         for condition in appConditions {
             guard bundleIDMatchesCondition(condition.bundleID) else { continue }
             if let paths = condition.forceIncludePaths {
@@ -367,10 +372,19 @@ class AppPathFinder {
         location == "\(home)/Library" || location == "/Library"
     }
 
+    static func overlapsBundle(_ path: String, bundlePath: String) -> Bool {
+        RecoveryFileSystem.inside(bundlePath, path) || RecoveryFileSystem.inside(path, bundlePath)
+    }
+
     /// Removes child paths when a parent is already in the set, and discards
     /// results that consist solely of a Trash item.
     private func filterSubpaths(_ urls: Set<URL>) -> Set<URL> {
-        let sorted = urls.map { $0.standardizedFileURL }.sorted { $0.path < $1.path }
+        let bundlePath = appInfo.path.standardizedFileURL.path
+        // A name match must not replace the explicitly chosen application
+        // with a directory containing other files, or dismantle its bundle.
+        let sorted = urls.map(\.standardizedFileURL)
+            .filter { !Self.overlapsBundle($0.path, bundlePath: bundlePath) }
+            .sorted { $0.path < $1.path }
         var filtered: [URL] = []
 
         for url in sorted {

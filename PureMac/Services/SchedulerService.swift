@@ -8,40 +8,37 @@ class SchedulerService: ObservableObject {
     }
 
     private var timer: Timer?
-    private let configKey = "PureMac.ScheduleConfig"
-    private var onTrigger: (() async -> Void)?
+    private let configKey = "Cachora.ScheduledScanConfig"
+    private let defaults: UserDefaults?
+    private var onTrigger: (() async -> Bool)?
+    private var isRunningScan = false
 
-    init() {
-        if let data = UserDefaults.standard.data(forKey: configKey),
-           var saved = try? JSONDecoder().decode(ScheduleConfig.self, from: data) {
-            // Refuse to honor an already-past nextRunDate loaded from disk -
-            // otherwise an attacker who can write our plist (same-UID foothold)
-            // sets nextRunDate to a past timestamp and our first tick after
-            // launch triggers autoClean. Reset the schedule so the first run
-            // is always at least one full interval after launch.
-            if let next = saved.nextRunDate, next.timeIntervalSinceNow < 60 {
-                saved.nextRunDate = nil
-                saved.lastRunDate = nil
-            }
-            self.config = saved
+    init(defaults: UserDefaults? = .standard) {
+        self.defaults = defaults
+        if let data = defaults?.data(forKey: configKey),
+           let saved = try? JSONDecoder().decode(ScheduleConfig.self, from: data) {
+            config = saved
         } else {
-            self.config = ScheduleConfig()
+            config = ScheduleConfig()
         }
     }
 
-    func setTrigger(_ handler: @escaping () async -> Void) {
-        self.onTrigger = handler
+    func setTrigger(_ handler: @escaping () async -> Bool) {
+        onTrigger = handler
     }
 
     func start() {
         stop()
         guard config.isEnabled else { return }
 
-        updateNextRunDate()
+        let now = Date()
+        if config.nextRunDate.map({ $0 > now }) != true {
+            config.nextRunDate = now.addingTimeInterval(config.interval.seconds)
+        }
 
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.checkAndRun()
+                await self?.runIfDue()
             }
         }
     }
@@ -53,9 +50,8 @@ class SchedulerService: ObservableObject {
 
     func updateSchedule(interval: ScheduleInterval) {
         config.interval = interval
-        updateNextRunDate()
         if config.isEnabled {
-            start()
+            config.nextRunDate = Date().addingTimeInterval(interval.seconds)
         }
     }
 
@@ -64,33 +60,31 @@ class SchedulerService: ObservableObject {
         if enabled {
             start()
         } else {
+            config.nextRunDate = nil
             stop()
         }
     }
 
-    // MARK: - Private
-
-    private func checkAndRun() {
-        guard config.isEnabled,
+    func runIfDue(at now: Date = Date()) async {
+        guard config.isEnabled, !isRunningScan,
               let nextRun = config.nextRunDate,
-              Date() >= nextRun else { return }
+              now >= nextRun, let onTrigger else { return }
 
-        config.lastRunDate = Date()
-        updateNextRunDate()
+        isRunningScan = true
+        defer { isRunningScan = false }
+        guard await onTrigger(), config.isEnabled else { return }
 
-        Task {
-            await onTrigger?()
+        var updated = config
+        updated.lastRunDate = now
+        if updated.nextRunDate == nextRun {
+            updated.nextRunDate = now.addingTimeInterval(updated.interval.seconds)
         }
-    }
-
-    private func updateNextRunDate() {
-        let base = config.lastRunDate ?? Date()
-        config.nextRunDate = base.addingTimeInterval(config.interval.seconds)
+        config = updated
     }
 
     private func saveConfig() {
         if let data = try? JSONEncoder().encode(config) {
-            UserDefaults.standard.set(data, forKey: configKey)
+            defaults?.set(data, forKey: configKey)
         }
     }
 

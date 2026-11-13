@@ -15,13 +15,18 @@ final class SimilarPhotosViewModel: ObservableObject {
     @Published private(set) var folder: URL?
     @Published private(set) var result: SimilarPhotoScanResult?
     @Published private(set) var progress: SimilarPhotoScanProgress?
+    @Published private(set) var selected: Set<URL> = []
+    @Published private(set) var isMoving = false
+    @Published private(set) var moveNotice: String?
 
     private let finder: SimilarPhotoFinder
+    let sampleFolder: URL?
     private var scanTask: Task<Void, Never>?
     private var scanID = UUID()
 
-    init(finder: SimilarPhotoFinder = SimilarPhotoFinder()) {
+    init(finder: SimilarPhotoFinder = SimilarPhotoFinder(), sampleFolder: URL? = nil) {
         self.finder = finder
+        self.sampleFolder = sampleFolder
     }
 
     var isScanning: Bool {
@@ -30,9 +35,14 @@ final class SimilarPhotosViewModel: ObservableObject {
     }
 
     func chooseFolder() {
+        guard !isMoving else { return }
+        if let sampleFolder {
+            startScan(folder: sampleFolder)
+            return
+        }
         let panel = NSOpenPanel()
         panel.title = String(localized: "Choose a photo folder")
-        panel.message = String(localized: "PureMac compares local image thumbnails without changing your photos.")
+        panel.message = String(localized: "Cachora compares local image thumbnails without changing your photos.")
         panel.prompt = String(localized: "Scan Photos")
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -46,7 +56,7 @@ final class SimilarPhotosViewModel: ObservableObject {
     }
 
     func rescan() {
-        guard let folder else { return }
+        guard let folder, !isMoving else { return }
         startScan(folder: folder)
     }
 
@@ -61,11 +71,46 @@ final class SimilarPhotosViewModel: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
+    func canSelect(_ photo: SimilarPhoto, in group: SimilarPhotoGroup) -> Bool {
+        !isMoving && (selected.contains(photo.url) || group.photos.contains {
+            $0.url != photo.url && !selected.contains($0.url)
+        })
+    }
+
+    func select(_ photo: SimilarPhoto, in group: SimilarPhotoGroup, enabled: Bool) {
+        guard canSelect(photo, in: group) else { return }
+        if enabled {
+            selected.insert(photo.url)
+        } else {
+            selected.remove(photo.url)
+        }
+    }
+
+    func moveReviewedPhotos(_ urls: Set<URL>) async {
+        guard !isMoving, !isScanning, let result, !urls.isEmpty, urls.isSubset(of: selected) else { return }
+        isMoving = true
+        moveNotice = nil
+        let scoped = result.folder.startAccessingSecurityScopedResource()
+        defer {
+            if scoped { result.folder.stopAccessingSecurityScopedResource() }
+            isMoving = false
+        }
+        do {
+            let outcome = try await finder.moveToTrash(from: result, selected: urls)
+            let count = outcome.moved.count
+            moveNotice = ([String(localized: "\(count) photos moved to Trash.")] + outcome.errors).joined(separator: "\n")
+            if !outcome.moved.isEmpty { startScan(folder: result.folder) }
+        } catch {
+            moveNotice = error.localizedDescription
+        }
+    }
+
     private func startScan(folder: URL) {
         scanTask?.cancel()
         let id = UUID()
         scanID = id
         self.folder = folder
+        selected.removeAll()
         result = nil
         progress = SimilarPhotoScanProgress(
             phase: .discovering,
@@ -77,7 +122,10 @@ final class SimilarPhotosViewModel: ObservableObject {
         phase = .scanning
 
         scanTask = Task { [weak self, finder] in
+            let scoped = folder.startAccessingSecurityScopedResource()
+            defer { if scoped { folder.stopAccessingSecurityScopedResource() } }
             do {
+                if self?.sampleFolder != nil { try RecoveryFileSystem.checkDirectory(folder.path) }
                 let result = try await finder.scan(folder: folder) { [weak self] progress in
                     await self?.receive(progress, scanID: id)
                 }
@@ -105,9 +153,10 @@ final class SimilarPhotosViewModel: ObservableObject {
 
 struct SimilarPhotosView: View {
     @StateObject private var model: SimilarPhotosViewModel
+    @State private var pendingReview: TrashSelection?
 
-    init(finder: SimilarPhotoFinder = SimilarPhotoFinder()) {
-        _model = StateObject(wrappedValue: SimilarPhotosViewModel(finder: finder))
+    init(finder: SimilarPhotoFinder = SimilarPhotoFinder(), sampleFolder: URL? = nil) {
+        _model = StateObject(wrappedValue: SimilarPhotosViewModel(finder: finder, sampleFolder: sampleFolder))
     }
 
     var body: some View {
@@ -121,6 +170,9 @@ struct SimilarPhotosView: View {
                     if let folder = model.folder {
                         locationCard(folder)
                     }
+                    if let notice = model.moveNotice {
+                        Text(notice).font(.callout).textSelection(.enabled)
+                    }
                     content
                 }
                 .padding(24)
@@ -129,6 +181,28 @@ struct SimilarPhotosView: View {
             }
         }
         .navigationTitle("Similar Photos")
+        .safeAreaInset(edge: .bottom) {
+            if !model.selected.isEmpty {
+                HStack {
+                    Text("Every group keeps at least one photo.")
+                        .font(.callout).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Review \(model.selected.count) selected photos") {
+                        pendingReview = TrashSelection(urls: model.selected)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(model.isMoving)
+                }
+                .padding(14)
+                .background(.bar)
+            }
+        }
+        .sheet(item: $pendingReview) { selection in
+            TrashReviewSheet(title: "Review selected photos", selection: selection, isFixture: model.sampleFolder != nil,
+                             details: "Every group keeps at least one photo.") { urls in
+                Task { await model.moveReviewedPhotos(urls) }
+            }
+        }
         .onDisappear {
             model.cancel()
         }
@@ -151,12 +225,13 @@ struct SimilarPhotosView: View {
             Button {
                 model.chooseFolder()
             } label: {
-                Label(model.folder == nil ? "Choose Folder" : "Choose Another Folder", systemImage: "folder.badge.plus")
+                Label(model.sampleFolder != nil ? "Scan test files" : model.folder == nil ? "Choose Folder" : "Choose Another Folder",
+                      systemImage: "folder.badge.plus")
             }
             .buttonStyle(.borderedProminent)
             .tint(Tint.pink)
             .controlSize(.large)
-            .disabled(model.isScanning)
+            .disabled(model.isScanning || model.isMoving)
         }
     }
 
@@ -183,7 +258,7 @@ struct SimilarPhotosView: View {
                     Label("Rescan", systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.borderless)
-                .disabled(model.isScanning)
+                .disabled(model.isScanning || model.isMoving)
             }
         }
     }
@@ -223,7 +298,7 @@ struct SimilarPhotosView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Choose a folder of photos")
                     .font(.system(size: 16, weight: .semibold))
-                Text("Compare local photos by appearance and review likely matches side by side. Photos are never uploaded or deleted.")
+                Text("Compare local photos side by side. You can select individual photos for review and move them to the Trash.")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -320,7 +395,7 @@ struct SimilarPhotosView: View {
                         IconTile(systemName: "checkmark.circle.fill", tint: Tint.green, size: 52, corner: 14)
                         Text("No similar groups found")
                             .font(.system(size: 18, weight: .semibold))
-                        Text("The analyzed photos did not meet PureMac's visual similarity threshold.")
+                        Text("The analyzed photos did not meet Cachora's visual similarity threshold.")
                             .font(.system(size: 13))
                             .foregroundStyle(.secondary)
                     }
@@ -329,7 +404,7 @@ struct SimilarPhotosView: View {
             } else {
                 SectionHeader("Suggested groups")
                 ForEach(Array(result.groups.enumerated()), id: \.element.id) { index, group in
-                    SimilarPhotoGroupCard(index: index + 1, group: group, onReveal: model.reveal)
+                    SimilarPhotoGroupCard(index: index + 1, group: group, model: model)
                 }
             }
         }
@@ -399,7 +474,7 @@ struct SimilarPhotosView: View {
 private struct SimilarPhotoGroupCard: View {
     let index: Int
     let group: SimilarPhotoGroup
-    let onReveal: (URL) -> Void
+    @ObservedObject var model: SimilarPhotosViewModel
 
     private let columns = [GridItem(.adaptive(minimum: 190, maximum: 250), spacing: 12)]
 
@@ -428,7 +503,21 @@ private struct SimilarPhotoGroupCard: View {
 
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
                     ForEach(group.photos) { photo in
-                        SimilarPhotoTile(photo: photo, onReveal: { onReveal(photo.url) })
+                        SimilarPhotoTile(photo: photo, onReveal: { model.reveal(photo.url) })
+                            .overlay(alignment: .topLeading) {
+                                Toggle(isOn: Binding(
+                                    get: { model.selected.contains(photo.url) },
+                                    set: { model.select(photo, in: group, enabled: $0) }
+                                )) {
+                                    Text("Select \(photo.url.lastPathComponent)")
+                                }
+                                .toggleStyle(.checkbox)
+                                .labelsHidden()
+                                .disabled(!model.canSelect(photo, in: group))
+                                .padding(5)
+                                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                                .padding(15)
+                            }
                     }
                 }
                 .padding(14)

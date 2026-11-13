@@ -61,14 +61,14 @@ struct ProtectionView: View {
                     if case .running = phase {
                         ProgressView()
                             .controlSize(.small)
-                            .tint(.white)
                     } else {
                         Image(systemName: "checkmark.shield")
                     }
                     Text(auditButtonTitle)
                 }
             }
-            .buttonStyle(GlowProminentButtonStyle(tint: Tint.accent, gradient: TintGradient.of(Tint.accent)))
+            .accentButtonStyle()
+            .controlSize(.large)
             .disabled(isRunning)
             .accessibilityLabel(auditButtonTitle)
         }
@@ -180,7 +180,7 @@ struct ProtectionView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Browser privacy")
                             .font(.system(size: 15, weight: .semibold))
-                        Text("Browser controls must be reviewed inside each browser. PureMac does not change cookies, history, site permissions, or extensions.")
+                        Text("Browser controls must be reviewed inside each browser. Cachora does not change cookies, history, site permissions, or extensions.")
                             .font(.system(size: 11.5))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)

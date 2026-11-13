@@ -18,6 +18,7 @@ struct SimilarPhoto: Identifiable, Sendable {
     let pixelWidth: Int
     let pixelHeight: Int
     let thumbnailData: Data
+    let snapshot: RecoverySnapshot
 
     var id: URL { url }
 }
@@ -43,6 +44,11 @@ struct SimilarPhotoScanResult: Sendable {
     var matchedPhotoCount: Int { groups.reduce(0) { $0 + $1.photos.count } }
     var matchedPhotoSize: Int64 { groups.reduce(0) { $0 + $1.totalSize } }
     var isPartial: Bool { photoLimitReached || entryLimitReached }
+}
+
+struct SimilarPhotoTrashResult: Sendable {
+    let moved: Set<URL>
+    let errors: [String]
 }
 
 struct SimilarPhotoScanProgress: Hashable, Sendable {
@@ -73,17 +79,9 @@ enum SimilarPhotoFinderError: LocalizedError, Equatable {
 actor SimilarPhotoFinder {
     typealias ProgressHandler = @Sendable (SimilarPhotoScanProgress) async -> Void
 
-    private struct FileIdentity: Equatable, Sendable {
-        let device: UInt64
-        let inode: UInt64
-        let size: Int64
-        let modifiedSeconds: Int64
-        let modifiedNanoseconds: Int64
-    }
-
     private struct Candidate: Sendable {
         let url: URL
-        let identity: FileIdentity
+        let snapshot: RecoverySnapshot
         let modifiedAt: Date?
     }
 
@@ -107,10 +105,13 @@ actor SimilarPhotoFinder {
 
     private let fileManager: FileManager
     private let limits: SimilarPhotoScanLimits
+    private let trashHandler: @Sendable (URL) throws -> Void
 
-    init(fileManager: FileManager = .default, limits: SimilarPhotoScanLimits = .standard) {
+    init(fileManager: FileManager = .default, limits: SimilarPhotoScanLimits = .standard,
+         trashHandler: (@Sendable (URL) throws -> Void)? = nil) {
         self.fileManager = fileManager
         self.limits = limits
+        self.trashHandler = trashHandler ?? { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) }
     }
 
     func scan(
@@ -172,9 +173,8 @@ actor SimilarPhotoFinder {
                 skippedItems += 1
                 continue
             }
-            guard Self.isRegularFile(at: url),
-                  Self.supportedExtensions.contains(url.pathExtension.lowercased()),
-                  let identity = Self.identity(at: url) else {
+            guard Self.supportedExtensions.contains(url.pathExtension.lowercased()),
+                  let snapshot = RecoverySnapshot.capture(url.path, includeTree: false), snapshot.isRegularFile else {
                 continue
             }
             if candidates.count >= limits.maxPhotos {
@@ -183,7 +183,7 @@ actor SimilarPhotoFinder {
             }
 
             let modifiedAt = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
-            candidates.append(Candidate(url: url, identity: identity, modifiedAt: modifiedAt))
+            candidates.append(Candidate(url: url, snapshot: snapshot, modifiedAt: modifiedAt))
 
             if candidates.count == 1 || candidates.count.isMultiple(of: 20) {
                 await progress(SimilarPhotoScanProgress(
@@ -202,14 +202,16 @@ actor SimilarPhotoFinder {
         var analyzed: [AnalyzedPhoto] = []
         analyzed.reserveCapacity(orderedCandidates.count)
 
-        for candidate in orderedCandidates {
+        for (index, candidate) in orderedCandidates.enumerated() {
             try Task.checkCancellation()
-            if let photo = Self.analyze(candidate), Self.identity(at: candidate.url) == candidate.identity {
+            if let photo = Self.analyze(candidate),
+               RecoverySnapshot.capture(candidate.url.path, includeTree: false) == candidate.snapshot {
                 analyzed.append(photo)
             } else {
                 skippedItems += 1
             }
-            if analyzed.count == 1 || analyzed.count.isMultiple(of: 10) || candidate.url == orderedCandidates.last?.url {
+            let processed = index + 1
+            if processed == 1 || processed.isMultiple(of: 10) || processed == orderedCandidates.count {
                 await progress(SimilarPhotoScanProgress(
                     phase: .analyzing,
                     entriesVisited: entriesVisited,
@@ -242,6 +244,44 @@ actor SimilarPhotoFinder {
         )
     }
 
+    func moveToTrash(from result: SimilarPhotoScanResult, selected: Set<URL>) throws -> SimilarPhotoTrashResult {
+        let allPhotos = Set(result.groups.flatMap { $0.photos.map(\.url) })
+        guard selected.isSubset(of: allPhotos),
+              result.groups.allSatisfy({ $0.photos.contains { !selected.contains($0.url) } }) else {
+            throw RecoveryFailure.unsafePath
+        }
+        var moved: Set<URL> = []
+        var errors: [String] = []
+        let exclusions = CleanupExclusions.paths()
+        for group in result.groups {
+            let kept = group.photos.filter { !selected.contains($0.url) }
+            for photo in group.photos where selected.contains(photo.url) {
+                if Task.isCancelled { return SimilarPhotoTrashResult(moved: moved, errors: errors) }
+                do {
+                    guard RecoveryFileSystem.inside(photo.url.path, result.folder.path),
+                          !CleanupExclusions.excludes(photo.url.path, paths: exclusions),
+                          !FileProtection.isProtectedFromDeletion(path: photo.url.path) else {
+                        throw RecoveryFailure.unsafePath
+                    }
+                    guard Self.matchesScan(photo),
+                          kept.contains(where: { RecoveryFileSystem.inside($0.url.path, result.folder.path) && Self.matchesScan($0) }) else {
+                        throw RecoveryFailure.changed
+                    }
+                    try trashHandler(photo.url)
+                    moved.insert(photo.url)
+                } catch {
+                    errors.append("\(photo.url.lastPathComponent): \(error.localizedDescription)")
+                }
+            }
+        }
+        return SimilarPhotoTrashResult(moved: moved, errors: errors)
+    }
+
+    private static func matchesScan(_ photo: SimilarPhoto) -> Bool {
+        photo.snapshot.isRegularFile && !isCloudPlaceholder(at: photo.url)
+            && RecoverySnapshot.capture(photo.url.path, includeTree: false) == photo.snapshot
+    }
+
     private static func analyze(_ candidate: Candidate) -> AnalyzedPhoto? {
         guard let source = CGImageSourceCreateWithURL(candidate.url as CFURL, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
@@ -264,11 +304,12 @@ actor SimilarPhotoFinder {
         }
         let photo = SimilarPhoto(
             url: candidate.url,
-            size: candidate.identity.size,
+            size: candidate.snapshot.size,
             modifiedAt: candidate.modifiedAt,
             pixelWidth: width,
             pixelHeight: height,
-            thumbnailData: thumbnailData
+            thumbnailData: thumbnailData,
+            snapshot: candidate.snapshot
         )
         return AnalyzedPhoto(photo: photo, signature: signature)
     }
@@ -380,36 +421,33 @@ actor SimilarPhotoFinder {
     }
 
     private static func makeGroups(from photos: [AnalyzedPhoto]) throws -> [SimilarPhotoGroup] {
-        var remaining = Set(photos.indices)
+        var grouped = Array(repeating: false, count: photos.count)
         var groups: [SimilarPhotoGroup] = []
 
-        for seedIndex in photos.indices where remaining.contains(seedIndex) {
+        for seedIndex in photos.indices where !grouped[seedIndex] {
             try Task.checkCancellation()
-            remaining.remove(seedIndex)
-            var matches: [(index: Int, score: Double)] = []
+            let seed = photos[seedIndex]
+            var members = [seed.photo]
+            var lowestScore = 1.0
 
-            for candidateIndex in remaining.sorted() {
+            for candidateIndex in (seedIndex + 1)..<photos.count where !grouped[candidateIndex] {
                 try Task.checkCancellation()
-                if let score = similarity(photos[seedIndex].signature, photos[candidateIndex].signature) {
-                    matches.append((candidateIndex, score))
+                let candidate = photos[candidateIndex]
+                if let score = similarity(seed.signature, candidate.signature) {
+                    grouped[candidateIndex] = true
+                    members.append(candidate.photo)
+                    lowestScore = min(lowestScore, score)
                 }
             }
-            guard !matches.isEmpty else { continue }
+            guard members.count > 1 else { continue }
 
-            let matchedIndices = matches.map(\.index)
-            remaining.subtract(matchedIndices)
-            let members = ([seedIndex] + matchedIndices)
-                .map { photos[$0].photo }
-                .sorted {
-                    if $0.modifiedAt != $1.modifiedAt {
-                        return ($0.modifiedAt ?? .distantPast) < ($1.modifiedAt ?? .distantPast)
-                    }
-                    return $0.url.path.localizedStandardCompare($1.url.path) == .orderedAscending
+            members.sort {
+                if $0.modifiedAt != $1.modifiedAt {
+                    return ($0.modifiedAt ?? .distantPast) < ($1.modifiedAt ?? .distantPast)
                 }
-            groups.append(SimilarPhotoGroup(
-                photos: members,
-                similarity: matches.map(\.score).min() ?? 1
-            ))
+                return $0.url.path.localizedStandardCompare($1.url.path) == .orderedAscending
+            }
+            groups.append(SimilarPhotoGroup(photos: members, similarity: lowestScore))
         }
 
         return groups.sorted {
@@ -424,12 +462,13 @@ actor SimilarPhotoFinder {
 
         let differenceDistance = (lhs.differenceHash ^ rhs.differenceHash).nonzeroBitCount
         let averageDistance = (lhs.averageHash ^ rhs.averageHash).nonzeroBitCount
+        guard differenceDistance <= 10, averageDistance <= 10 else { return nil }
         let colorDistance = sqrt(
             pow(lhs.red - rhs.red, 2) +
             pow(lhs.green - rhs.green, 2) +
             pow(lhs.blue - rhs.blue, 2)
         ) / sqrt(3)
-        guard differenceDistance <= 10, averageDistance <= 10, colorDistance <= 0.28 else { return nil }
+        guard colorDistance <= 0.28 else { return nil }
 
         let score = 1 - (
             0.45 * Double(differenceDistance) / 64 +
@@ -437,24 +476,6 @@ actor SimilarPhotoFinder {
             0.20 * colorDistance
         )
         return score >= 0.84 ? score : nil
-    }
-
-    private static func identity(at url: URL) -> FileIdentity? {
-        var information = stat()
-        guard lstat(url.path, &information) == 0 else { return nil }
-        return FileIdentity(
-            device: UInt64(information.st_dev),
-            inode: UInt64(information.st_ino),
-            size: Int64(information.st_size),
-            modifiedSeconds: Int64(information.st_mtimespec.tv_sec),
-            modifiedNanoseconds: Int64(information.st_mtimespec.tv_nsec)
-        )
-    }
-
-    private static func isRegularFile(at url: URL) -> Bool {
-        var information = stat()
-        guard lstat(url.path, &information) == 0 else { return false }
-        return information.st_mode & S_IFMT == S_IFREG
     }
 
     private static func isDirectory(at url: URL) -> Bool {

@@ -10,13 +10,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// monitor is enabled the app stays resident so the meters keep updating in
     /// the menu bar; "Open PureMac" in that menu reopens the window.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        !UserDefaults.standard.bool(forKey: "settings.general.menuBarMonitor")
+        CleanupEnvironment.fixtureRequested || !UserDefaults.standard.bool(forKey: "settings.general.menuBarMonitor")
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
         // The disposable fixture app never probes real data or registers services.
-        guard !CleanupEnvironment.fixtureRequested, !ProductIdentity.isPublicBeta else { return }
+        guard !CleanupEnvironment.fixtureRequested else { return }
 
         // Install the menu-bar monitor if the user has it enabled. Never under
         // XCTest — the status-item machinery would stall the test-host run loop.
@@ -27,19 +27,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 name: .pureMacMenuBarMonitorChanged, object: nil
             )
         }
-        // Touch TCC-protected paths so macOS registers PureMac in the
-        // Full Disk Access pane on first launch (fixes issue #75).
-        FullDiskAccessManager.shared.triggerRegistration()
-        // Register the Finder Services provider so "Uninstall with PureMac"
-        // appears when an .app bundle is right-clicked (issue #109).
-        NSApp.servicesProvider = self
-        NSUpdateDynamicServices()
+        // Permission registration remains an explicit user action in every release channel.
+        if Bundle.main.object(forInfoDictionaryKey: "NSServices") != nil {
+            NSApp.servicesProvider = self
+            NSUpdateDynamicServices()
+        }
     }
 
     /// Finder Services entry point. Declared in Info.plist as NSMessage
     /// `uninstallApp`; receives the right-clicked .app via the pasteboard and
     /// hands it to AppState through a notification. Brings PureMac forward so
-    /// the user lands on the uninstall scan.
+    /// the user can review the selected application.
     @objc func uninstallApp(_ pboard: NSPasteboard,
                             userData: String?,
                             error: AutoreleasingUnsafeMutablePointer<NSString>?) {
@@ -86,7 +84,6 @@ struct PureMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState(performStartupTasks: NSClassFromString("XCTestCase") == nil)
     @StateObject private var theme = ThemeManager.shared
-    @AppStorage("PureMac.OnboardingComplete") private var onboardingComplete = false
 
     init() {
         // Enter CLI mode only when the first arg is a known command. Xcode and
@@ -94,8 +91,8 @@ struct PureMacApp: App {
         // -psn_<pid> that must not be interpreted as CLI commands.
         if let first = CommandLine.arguments.dropFirst().first,
            CLI.isKnownCommand(first) {
-            if CleanupEnvironment.fixtureRequested || ProductIdentity.isPublicBeta { exit(2) }
-            CLI.run()
+            // The GUI distribution requires path review; the legacy CLI cannot bypass it.
+            exit(2)
         }
     }
 
@@ -107,20 +104,10 @@ struct PureMacApp: App {
                         Text("Test workspace is invalid. No operations are available.").font(.headline)
                         Text(reason).textSelection(.enabled)
                     }.padding(32)
-                } else if appState.cleanupEnvironment.isFixture {
-                    if ProductIdentity.isPublicBeta {
-                        BetaMainView().environmentObject(appState)
-                    } else {
-                        RecoveryFixtureView().environmentObject(appState)
-                    }
-                } else if ProductIdentity.isPublicBeta {
-                    BetaMainView().environmentObject(appState)
-                } else if onboardingComplete {
+                } else {
                     MainWindow()
                         .environmentObject(appState)
                         .frame(minWidth: 960, minHeight: 640)
-                } else {
-                    OnboardingView(isComplete: $onboardingComplete)
                 }
             }
             .environmentObject(theme)
@@ -135,9 +122,9 @@ struct PureMacApp: App {
         .defaultSize(width: 1120, height: 740)
         .commands {
             CommandGroup(replacing: .newItem) {}
-            if !appState.cleanupEnvironment.isFixture && !ProductIdentity.isPublicBeta {
+            if !appState.cleanupEnvironment.isFixture {
               CommandMenu("Updates") {
-                Button("Check for Updates") {
+                Button("Check for Cachora Updates") {
                     appState.showUpdateSettings = true
                     WindowOpener.shared.showMainWindow()
                     NSApp.activate(ignoringOtherApps: true)
@@ -149,10 +136,8 @@ struct PureMacApp: App {
         }
 
         Settings {
-            if ProductIdentity.isPublicBeta {
-                BetaAboutView().frame(width: 620, height: 560)
-            } else if appState.cleanupEnvironment.isFixture {
-                Text("Test mode — disposable files only").padding(24)
+            if appState.cleanupEnvironment.blockedReason != nil {
+                Text("Test workspace is invalid. No operations are available.").padding(24)
             } else {
               SettingsView(standalone: true)
                 .environmentObject(appState)

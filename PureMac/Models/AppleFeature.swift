@@ -38,7 +38,7 @@ enum AppleFeatureCatalog {
                     siriPane, modern ? "mchl3fd7fc15/mac" : "mchl3fd7fc15/26/mac/26"),
             feature("intelligence", "Apple Intelligence", "Review Apple's writing, image and summary features.",
                     modern ? "macOS 27 uses separate Siri, Screen Time and app controls. Review the individual features below. Turning off Siri does not establish that all Apple Intelligence features are off."
-                        : "Open Apple Intelligence & Siri, turn off Apple Intelligence and confirm. macOS manages downloaded models; PureMac does not promise that this immediately recovers their storage.",
+                        : "Open Apple Intelligence & Siri, turn off Apple Intelligence and confirm. macOS manages downloaded models; Cachora does not promise that this immediately recovers their storage.",
                     siriPane, modern ? "mchlb2e44f94/mac" : "mchl46361784/\(legacyGuideVersion)", 15, 1),
             feature("images", "Image Playground & Genmoji", "Restrict image generation using Screen Time.",
                     restrictions + (modern ? " Set Image Creation to Blocked where available." : " Turn off Image Creation." ) + " This restricts access; it does not uninstall the protected app or erase images you created.",
