@@ -76,12 +76,15 @@ enum RecoveryChecks {
         do { try await body(fixture) } catch { caught = error }
         try require(try Data(contentsOf: fixture.sentinel) == fixture.preserved, "Document sentinel changed")
         try require(try Data(contentsOf: fixture.outside) == fixture.preserved, "Outside-boundary sentinel changed")
-        let audit: [String: Any] = ["test": name, "workspace": root.path,
-            "sentinels_unchanged": true, "test_completed": caught == nil,
-            "sentinel_sha256": SHA256.hash(data: fixture.preserved).map { String(format: "%02x", $0) }.joined()]
-        try JSONSerialization.data(withJSONObject: audit, options: [.prettyPrinted, .sortedKeys])
-            .write(to: root.appendingPathComponent("audit.json"))
-        if let caught { throw caught }
+        if let caught {
+            let audit: [String: Any] = ["test": name, "workspace": root.path,
+                "sentinels_unchanged": true, "test_completed": false,
+                "sentinel_sha256": SHA256.hash(data: fixture.preserved).map { String(format: "%02x", $0) }.joined()]
+            try JSONSerialization.data(withJSONObject: audit, options: [.prettyPrinted, .sortedKeys])
+                .write(to: root.appendingPathComponent("audit.json"))
+            throw caught
+        }
+        try FileManager.default.removeItem(at: root)
     }
 
     static var cases: [(String, () async throws -> Void)] { [
