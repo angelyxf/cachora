@@ -9,7 +9,7 @@ A native Mac toolkit for storage, applications, and recoverable cleanup.
 [![Cachora checks](https://github.com/angelyxf/cachora/actions/workflows/build.yml/badge.svg)](https://github.com/angelyxf/cachora/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**当前版本：0.1.0 · Build 18。源码已开放，安装包暂不公开。** 这是面向本机使用验证的稳定构建，尚未完成自己的 Apple Developer ID 签名与公证；“稳定构建”不代表所有 Mac 配置均已验证。详见 [验证与发行状态](docs/RELEASE-STATUS.md)。
+**当前版本为 0.1.0 · Build 20。源码已开放，安装包仅供本机验证。** 本地构建使用临时签名。详见 [验证与发行状态](docs/RELEASE-STATUS.md)。
 
 [源码编译](docs/BUILDING.md) · [功能截图](#使用截图) · [反馈问题](https://github.com/angelyxf/cachora/issues) · [隐私说明](PRIVACY.md)
 
@@ -19,8 +19,8 @@ A native Mac toolkit for storage, applications, and recoverable cleanup.
 | --- | --- |
 | 空间总览与分析 | 查看磁盘容量、目录占用、大文件和旧文件；统计包含隐藏文件，无法读取的位置会提示，不能读不等于零占用。 |
 | 缓存与文件清理 | 手动扫描系统垃圾、用户缓存、邮件文件、废纸篓，以及 AI、Xcode、Node、Homebrew、Docker 相关项目；区分可处理项与仅供查看项，复核实际路径后再操作。 |
-| 清理恢复 | 可恢复项目先移入本地恢复区，保留原位置与操作记录；恢复遇到同名文件时拒绝覆盖，处理冲突后可以重试。 |
-| 重复文件 | 比对文件内容，按名称或路径搜索、按类型筛选，支持三种双向排序；提供保留建议，也可指定保留项。筛选后全选只勾选命中的多余副本，每组至少留一份。 |
+| 清理恢复 | 可恢复项目先移入本地恢复区，保留原位置与操作记录。恢复时拒绝覆盖同名文件，副本内容变化时提示并提供另存。 |
+| 重复文件 | 比对文件内容，可搜索、筛选、排序并指定保留项。筛选后全选只勾选命中的多余副本，每组至少留一份。扫描和移动均排除恢复区。 |
 | 忽略与撤销 | 重复文件可“忽略此组”，在已忽略列表撤销；再次扫描相同目录时，文件或组成员变化会让忽略失效，重新纳入复核。 |
 | 应用管理 | 查看应用及关联缓存、偏好设置、日志，复核后卸载；支持访达右键服务进入卸载复核，也可单独扫描疑似应用残留。 |
 | 应用更新 | 提供 App Store 更新入口；已安装 Homebrew 时，可检查它管理的软件。Homebrew 是可选的命令行软件管理器，普通扫描和清理不依赖它。设置中的“检查轻盘更新”只检查 Cachora 自身。 |
@@ -68,7 +68,7 @@ python3 scripts/build-local-app.py
 open build-local/Cachora.app
 ```
 
-默认构建会先运行 92 项 Swift 样本检查，再编译应用、生成图标并验证本地临时签名。产物在项目的 `build-local/`，不会自动安装到 `/Applications`。直接打开普通应用会读取本机状态；**只想验证文件操作时，请先按 [隔离样本演示](docs/BUILDING.md#只用测试文件体验) 打开样本应用。**
+默认构建会先运行 99 项 Swift 样本检查，再编译应用、生成图标并验证本地临时签名。产物在项目的 `build-local/`，不会自动安装到 `/Applications`。直接打开普通应用会读取本机状态；**只想验证文件操作时，请先按 [隔离样本演示](docs/BUILDING.md#只用测试文件体验) 打开样本应用。**
 
 环境检查、完整命令、日志位置和常见编译问题见 [源码编译与样本验证](docs/BUILDING.md)。
 
@@ -80,9 +80,9 @@ python3 -m unittest discover -s scripts/tests -v
 python3 scripts/prepare-beta.py --check
 ```
 
-92 项 Swift 检查覆盖扫描、恢复、完整源码集成、更新与重复文件规则；另有 23 项 Python 检查覆盖打包和公证状态控制，Apple 服务响应使用模拟。完整上游 XCTest 未全部执行。GitHub Actions 会从源码构建并运行这些检查，最新结果可从页面顶部状态链接查看。
+99 项 Swift 检查覆盖扫描、恢复、完整源码集成、更新与重复文件规则。另有 23 项 Python 检查覆盖打包和公证状态控制，Apple 服务响应使用模拟。GitHub Actions 会从源码构建并运行这些检查，最新结果可从页面顶部状态链接查看。
 
-本地临时签名不等于 Developer ID 签名或 Apple 公证。安装包的后续准备流程见 [构建与发布说明](docs/BETA-RELEASE.md)，当前没有公开的 Build 18 DMG / ZIP 下载。
+Build 20 的 DMG 和 ZIP 仅保留在本机。安装包的后续准备流程见 [构建与发布说明](docs/BETA-RELEASE.md)。
 
 ## 隐私与反馈
 
@@ -100,4 +100,4 @@ python3 scripts/prepare-beta.py --check
 
 Cachora is an independent, MIT-licensed PureMac derivative for storage analysis, application management, duplicate review, and recoverable cleanup. Review paths before moving eligible files into local Recovery; retained copies still occupy disk space. App uninstallation and file comparison tools use the system Trash.
 
-Build 18 source is available. Installers are not publicly distributed, and Developer ID signing and Apple notarization are pending. The build script targets Apple Silicon. All screenshots use generated fixtures, not personal files. See [build instructions](docs/BUILDING.md) and [tested configurations](docs/RELEASE-STATUS.md).
+Build 20 source is available. Installers are for local verification. The build script targets Apple Silicon and uses ad-hoc signing. The screenshots show Build 18 with generated fixtures. See [build instructions](docs/BUILDING.md) and [tested configurations](docs/RELEASE-STATUS.md).
