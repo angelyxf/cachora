@@ -4,6 +4,7 @@ import Foundation
 struct RecoveryEntry: Codable, Identifiable, Sendable {
     enum State: String, Codable, Sendable {
         case prepared, stored, restoring, restored, purging, purged, failed, missing, purgeFailed
+        case copyChanged
     }
     var version = 1
     let id: UUID
@@ -19,6 +20,7 @@ struct RecoveryEntry: Codable, Identifiable, Sendable {
 
     var canRestore: Bool { state == .stored }
     var canPurge: Bool { state == .stored || state == .purgeFailed }
+    var canSaveCopy: Bool { state == .copyChanged }
 }
 
 struct RecoveryCatalog: Sendable {
@@ -34,15 +36,18 @@ actor RecoveryStore {
     let root: URL
     private let allowedRoots: [String]
     private let allowedRootItems: Set<String>
+    private let copyDestinationRoot: URL?
     private let pathValidator: (@Sendable (String, String, RecoverySnapshot) -> Bool)?
     private let fault: (@Sendable (RecoveryCheckpoint) throws -> Void)?
 
     init(root: URL, allowedRoots: [URL], allowedRootItems: [URL] = [],
+         copyDestinationRoot: URL? = nil,
          pathValidator: (@Sendable (String, String, RecoverySnapshot) -> Bool)? = nil,
          fault: (@Sendable (RecoveryCheckpoint) throws -> Void)? = nil) {
         self.root = root
         self.allowedRoots = allowedRoots.compactMap { try? RecoveryFileSystem.directoryWalkPath($0.path) }
         self.allowedRootItems = Set(allowedRootItems.compactMap { try? RecoveryFileSystem.directoryWalkPath($0.path) })
+        self.copyDestinationRoot = copyDestinationRoot
         self.pathValidator = pathValidator
         self.fault = fault
     }
@@ -50,13 +55,9 @@ actor RecoveryStore {
     struct Outcome: Sendable { let entry: RecoveryEntry; let warning: String? }
 
     private func validateOriginal(_ path: String, category: String, snapshot: RecoverySnapshot) throws {
-        let normalized = try RecoveryFileSystem.normalized(path)
-        // Compare the same verified system aliases used by descriptor-based
-        // moves. This also keeps the vault exclusion effective across aliases.
-        let original = try RecoveryFileSystem.directoryWalkPath(path)
+        let original = try RecoveryFileSystem.directoryWalkPath(path, requireNormalized: true)
         let vault = try RecoveryFileSystem.directoryWalkPath(root.path)
-        guard normalized == path,
-              (allowedRoots.contains(where: { RecoveryFileSystem.inside(original, $0) }) || allowedRootItems.contains(original)),
+        guard (allowedRoots.contains(where: { RecoveryFileSystem.inside(original, $0) }) || allowedRootItems.contains(original)),
               !RecoveryFileSystem.inside(original, vault), original != vault,
               !RecoveryFileSystem.inside(vault, original) else { throw RecoveryFailure.unsafePath }
         guard snapshot.isDirectory || snapshot.isRegularFile,
@@ -150,13 +151,17 @@ actor RecoveryStore {
         try withStore { records, objects in
             var result = RecoveryCatalog()
             for name in try RecoveryFileSystem.names(in: records) where name.hasSuffix(".json") {
+                try Task.checkCancellation()
                 guard let id = UUID(uuidString: String(name.dropLast(5))) else {
                     result.warnings.append(String(localized: "An unrecognized recovery record was kept for review."))
                     continue
                 }
                 do {
                     var entry = try load(id, records: records)
-                    let stored = try? RecoveryFileSystem.snapshot(at: objects, name: id.uuidString, includeTree: false)
+                    let hasPayload = [.prepared, .restoring, .purging, .stored].contains(entry.state)
+                    let stored = hasPayload
+                        ? try? RecoveryFileSystem.snapshot(at: objects, name: id.uuidString, includeTree: false)
+                        : nil
                     if entry.state == .prepared || entry.state == .restoring || entry.state == .purging {
                         if let stored, stored.sameObject(as: entry.snapshot) {
                             entry.state = entry.state == .purging ? .purgeFailed : .stored
@@ -171,7 +176,22 @@ actor RecoveryStore {
                         }
                         try save(entry, records: records)
                     }
-                    if entry.state == .stored && stored == nil { entry.state = .missing }
+                    if entry.state == .stored {
+                        // The on-disk record stays compatible with older builds. A fresh catalog
+                        // derives the copy status from the verified object, including directory contents.
+                        if let stored, stored.sameObject(as: entry.snapshot) {
+                            let verified = stored.isDirectory
+                                ? try? RecoveryFileSystem.snapshot(at: objects, name: id.uuidString)
+                                : stored
+                            if let verified, verified.sameObject(as: entry.snapshot) {
+                                if verified != entry.snapshot { entry.state = .copyChanged }
+                            } else {
+                                entry.state = .missing
+                            }
+                        } else {
+                            entry.state = .missing
+                        }
+                    }
                     result.entries.append(entry)
                 } catch {
                     result.warnings.append(name + ": " + error.localizedDescription)
@@ -187,7 +207,7 @@ actor RecoveryStore {
             var entry = try load(id, records: records)
             guard entry.canRestore else { throw RecoveryFailure.invalidRecord }
             let stored = try RecoveryFileSystem.snapshot(at: objects, name: id.uuidString)
-            guard stored == entry.snapshot else { throw RecoveryFailure.changed }
+            guard stored == entry.snapshot else { throw RecoveryFailure.recoveryCopyChanged }
             let original = try RecoveryFileSystem.directoryWalkPath(entry.originalPath)
             let parentPath = (original as NSString).deletingLastPathComponent
             // Recreate missing parents inside an approved root only, never a root itself.
@@ -219,6 +239,33 @@ actor RecoveryStore {
             } catch {
                 return Outcome(entry: entry, warning: String(localized: "The file was restored. Its interrupted record will be checked on reload."))
             }
+        }
+    }
+
+    func saveCopy(_ id: UUID, to destination: URL) throws {
+        guard destination.isFileURL else { throw RecoveryFailure.copyDestinationInvalid }
+        let target = try RecoveryFileSystem.directoryWalkPath(destination.path)
+        let vault = try RecoveryFileSystem.directoryWalkPath(root.path).lowercased()
+        let targetKey = target.lowercased()
+        guard target != "/", targetKey != vault, !RecoveryFileSystem.inside(targetKey, vault) else {
+            throw RecoveryFailure.copyDestinationInvalid
+        }
+        if let copyDestinationRoot {
+            let sample = try RecoveryFileSystem.directoryWalkPath(copyDestinationRoot.path)
+            guard RecoveryFileSystem.inside(target, sample) else { throw RecoveryFailure.copyDestinationInvalid }
+        }
+        try withStore { records, objects in
+            let entry = try load(id, records: records)
+            let original = try RecoveryFileSystem.directoryWalkPath(entry.originalPath)
+            guard entry.state == .stored, original.lowercased() != targetKey else {
+                throw RecoveryFailure.copyDestinationInvalid
+            }
+            let current = try RecoveryFileSystem.snapshot(at: objects, name: id.uuidString)
+            guard current.sameObject(as: entry.snapshot) else { throw RecoveryFailure.unverified }
+            let parent = try RecoveryFileSystem.directory((target as NSString).deletingLastPathComponent)
+            defer { close(parent) }
+            try RecoveryFileSystem.saveCopy(from: objects, name: id.uuidString, expected: entry.snapshot,
+                                          to: parent, target: (target as NSString).lastPathComponent)
         }
     }
 

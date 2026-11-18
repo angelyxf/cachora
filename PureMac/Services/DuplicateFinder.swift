@@ -339,6 +339,7 @@ struct DuplicateIgnoreStore {
 }
 
 enum DuplicateSkipReason: String, Hashable, Sendable {
+    case recoveryStorage
     case symbolicLink
     case package
     case cloudPlaceholder
@@ -349,6 +350,7 @@ enum DuplicateSkipReason: String, Hashable, Sendable {
 
     var label: String {
         switch self {
+        case .recoveryStorage: return String(localized: "Recovery storage")
         case .symbolicLink: return String(localized: "Symbolic link")
         case .package: return String(localized: "Package contents")
         case .cloudPlaceholder: return String(localized: "Cloud-only file")
@@ -416,6 +418,7 @@ struct DuplicateTrashReport: Hashable, Sendable {
 enum DuplicateFinderError: LocalizedError, Equatable {
     case invalidFolder(String)
     case invalidSelection(String)
+    case recoveryStorage
     case keeperChanged(String)
     case fileChanged(String)
     case contentChanged(String)
@@ -426,6 +429,8 @@ enum DuplicateFinderError: LocalizedError, Equatable {
             return String(localized: "The selected folder cannot be scanned: \(path)")
         case .invalidSelection(let path):
             return String(localized: "The protected copy cannot be moved to Trash: \(path)")
+        case .recoveryStorage:
+            return String(localized: "Recovery storage is excluded from duplicate file operations.")
         case .keeperChanged(let path):
             return String(localized: "The copy marked Keep is missing or changed: \(path)")
         case .fileChanged(let path):
@@ -453,19 +458,40 @@ actor DuplicateFinder {
     }
 
     private let fileManager: FileManager
+    private let recoveryRoot: URL
     private let trashHandler: TrashHandler
     private let preTrashHandler: PreTrashHandler?
 
     init(
         fileManager: FileManager = .default,
+        recoveryRoot: URL = CleanupEnvironment.current.recoveryRoot,
         trashHandler: TrashHandler? = nil,
         preTrashHandler: PreTrashHandler? = nil
     ) {
         self.fileManager = fileManager
+        self.recoveryRoot = recoveryRoot
         self.preTrashHandler = preTrashHandler
         self.trashHandler = trashHandler ?? { url in
             var resultingURL: NSURL?
             try FileManager.default.trashItem(at: url, resultingItemURL: &resultingURL)
+        }
+    }
+
+    private var recoveryPaths: Set<String> {
+        Set([recoveryRoot.standardizedFileURL.path,
+             recoveryRoot.resolvingSymlinksInPath().standardizedFileURL.path].map { $0.lowercased() })
+    }
+
+    private func isInRecovery(_ url: URL, paths: Set<String>) -> Bool {
+        let path = url.standardizedFileURL.path.lowercased()
+        return paths.contains { path == $0 || RecoveryFileSystem.inside(path, $0) }
+    }
+
+    private func checkOutsideRecovery(_ url: URL, paths: Set<String>? = nil) throws {
+        let paths = paths ?? recoveryPaths
+        guard !isInRecovery(url, paths: paths),
+              !isInRecovery(url.resolvingSymlinksInPath(), paths: paths) else {
+            throw DuplicateFinderError.recoveryStorage
         }
     }
 
@@ -474,11 +500,22 @@ actor DuplicateFinder {
         progress: @escaping ProgressHandler = { _ in }
     ) async throws -> DuplicateScanResult {
         let folder = rawFolder.standardizedFileURL
+        try checkOutsideRecovery(folder)
         guard Self.identity(at: folder) != nil, Self.isDirectory(at: folder) else {
             throw DuplicateFinderError.invalidFolder(folder.path)
         }
         guard !Self.isSymbolicLink(at: folder), !Self.isPackage(at: folder), !Self.isCloudPlaceholder(at: folder) else {
             throw DuplicateFinderError.invalidFolder(folder.path)
+        }
+        // Match the recovery root under either spelling of the selected folder.
+        // This lets the enumerator prune the whole subtree without resolving each entry.
+        let rootPaths = recoveryPaths
+        var protectedPaths = rootPaths
+        let resolvedFolder = folder.resolvingSymlinksInPath().standardizedFileURL.path.lowercased()
+        for path in rootPaths where RecoveryFileSystem.inside(path, resolvedFolder) {
+            let prefix = folder.path == "/" ? "" : folder.path.lowercased()
+            let relative = path.dropFirst(resolvedFolder == "/" ? 0 : resolvedFolder.count)
+            protectedPaths.insert(prefix + relative)
         }
         var candidatesBySize: [Int64: [Candidate]] = [:]
         var seenPhysicalFiles: [DuplicatePhysicalFileID: URL] = [:]
@@ -512,6 +549,11 @@ actor DuplicateFinder {
         while let url = enumerator.nextObject() as? URL {
             try Task.checkCancellation()
             let normalizedURL = url.standardizedFileURL
+            if isInRecovery(normalizedURL, paths: protectedPaths) {
+                enumerator.skipDescendants()
+                skipped.append(DuplicateSkippedFile(url: normalizedURL, reason: .recoveryStorage, detail: nil))
+                continue
+            }
             if Self.isSymbolicLink(at: normalizedURL) {
                 enumerator.skipDescendants()
                 skipped.append(DuplicateSkippedFile(url: normalizedURL, reason: .symbolicLink, detail: nil))
@@ -582,6 +624,7 @@ actor DuplicateFinder {
         for candidate in candidates {
             try Task.checkCancellation()
             do {
+                try checkOutsideRecovery(candidate.url, paths: rootPaths)
                 let digest = try Self.hashFile(at: candidate.url)
                 if Self.identity(at: candidate.url) != candidate.identity {
                     skipped.append(DuplicateSkippedFile(url: candidate.url, reason: .changedDuringScan, detail: nil))
@@ -596,6 +639,8 @@ actor DuplicateFinder {
                     filesByDigest[DigestKey(size: candidate.identity.size, digest: digest), default: []].append(file)
                     bytesHashed += candidate.identity.size
                 }
+            } catch DuplicateFinderError.recoveryStorage {
+                skipped.append(DuplicateSkippedFile(url: candidate.url, reason: .recoveryStorage, detail: nil))
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -659,9 +704,11 @@ actor DuplicateFinder {
             return DuplicateTrashReport(trashedFiles: [], failures: [])
         }
 
+        try checkOutsideRecovery(group.keeper.url)
         try Self.validateKeeper(group.keeper, expectedDigest: group.digest)
         var selectedPhysicalIDs: Set<DuplicatePhysicalFileID> = [group.keeper.identity.physicalID]
         for file in selectedFiles {
+            try checkOutsideRecovery(file.url)
             try Self.validateSelectedFile(file, expectedDigest: group.digest)
             guard selectedPhysicalIDs.insert(file.identity.physicalID).inserted else {
                 throw DuplicateFinderError.fileChanged(file.url.path)
@@ -674,9 +721,15 @@ actor DuplicateFinder {
             do {
                 try Self.validateKeeper(group.keeper, expectedDigest: group.digest)
                 try Self.validateSelectedFile(file, expectedDigest: group.digest)
-                try preTrashHandler?(file.url)
-                try Self.validateKeeper(group.keeper, expectedDigest: group.digest)
-                try Self.validateSelectedFile(file, expectedDigest: group.digest)
+                if let preTrashHandler {
+                    try preTrashHandler(file.url)
+                    // The callback may have changed either file after validation.
+                    try Self.validateKeeper(group.keeper, expectedDigest: group.digest)
+                    try Self.validateSelectedFile(file, expectedDigest: group.digest)
+                }
+                try checkOutsideRecovery(group.keeper.url)
+                try checkOutsideRecovery(file.url)
+                try Task.checkCancellation()
                 try trashHandler(file.url)
                 trashed.append(file)
             } catch is CancellationError {

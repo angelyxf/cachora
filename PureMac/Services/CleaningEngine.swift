@@ -93,8 +93,11 @@ actor CleaningEngine {
                 guard !CleanupExclusions.excludes(item.path, paths: exclusions) else {
                     throw RecoveryFailure.unsafePath
                 }
-                if let boundary = fixtureBoundary,
-                   !RecoveryFileSystem.inside(item.path, boundary.path) { throw RecoveryFailure.unsafePath }
+                if let boundary = fixtureBoundary {
+                    let path = try RecoveryFileSystem.directoryWalkPath(item.path, requireNormalized: true)
+                    let root = try RecoveryFileSystem.directoryWalkPath(boundary.path)
+                    guard RecoveryFileSystem.inside(path, root) else { throw RecoveryFailure.unsafePath }
+                }
                 if RecoveryPathPolicy.isSystemLogPath(item.path) {
                     result.protectedPaths.insert(item.path)
                     continue
