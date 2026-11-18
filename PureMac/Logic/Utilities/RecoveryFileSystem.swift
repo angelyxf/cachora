@@ -3,13 +3,17 @@ import Darwin
 import Foundation
 
 enum RecoveryFailure: LocalizedError {
-    case unsafePath, changed, unverified, conflict, missing, busy, invalidRecord, unsupported, cancelled
+    case unsafePath, changed, recoveryCopyChanged, copyDestinationExists, copyDestinationInvalid
+    case unverified, conflict, missing, busy, invalidRecord, unsupported, cancelled
     case system(String, Int32)
 
     var errorDescription: String? {
         switch self {
         case .unsafePath: return String(localized: "Recovery refused an unsafe path or symbolic link.")
         case .changed: return String(localized: "The file changed after review. Scan again before cleaning.")
+        case .recoveryCopyChanged: return String(localized: "The recovery copy changed. Review it and save a separate copy.")
+        case .copyDestinationExists: return String(localized: "An item already exists there. Choose a new name or location.")
+        case .copyDestinationInvalid: return String(localized: "Choose a new location outside the recovery storage and original path.")
         case .unverified: return String(localized: "Not all files could be verified. The item was kept in place.")
         case .conflict: return String(localized: "An item already exists at the original location. Both copies were kept.")
         case .missing: return String(localized: "The recovery copy is missing. No other file was changed.")
@@ -30,8 +34,10 @@ struct RecoverySnapshot: Codable, Equatable, Sendable {
     let modifiedSeconds: Int64
     let modifiedNanoseconds: Int64
     let treeDigest: String?
+    let changeSeconds: Int64?
+    let changeNanoseconds: Int64?
 
-    init(_ value: stat, treeDigest: String? = nil) {
+    init(_ value: stat, treeDigest: String? = nil, trackChanges: Bool = false) {
         device = value.st_dev
         inode = value.st_ino
         mode = value.st_mode
@@ -39,6 +45,8 @@ struct RecoverySnapshot: Codable, Equatable, Sendable {
         modifiedSeconds = Int64(value.st_mtimespec.tv_sec)
         modifiedNanoseconds = Int64(value.st_mtimespec.tv_nsec)
         self.treeDigest = treeDigest
+        changeSeconds = trackChanges ? Int64(value.st_ctimespec.tv_sec) : nil
+        changeNanoseconds = trackChanges ? Int64(value.st_ctimespec.tv_nsec) : nil
     }
 
     static func capture(_ path: String, includeTree: Bool = true) -> RecoverySnapshot? {
@@ -58,14 +66,6 @@ struct RecoverySnapshot: Codable, Equatable, Sendable {
 /// All mutation uses open directory descriptors and no-follow path components.
 /// A rename is exclusive: neither cleanup nor restore can overwrite another file.
 enum RecoveryFileSystem {
-    static func normalized(_ path: String) throws -> String {
-        guard path.hasPrefix("/"), !path.utf8.contains(0),
-              !path.split(separator: "/").contains(where: { $0 == "." || $0 == ".." }) else {
-            throw RecoveryFailure.unsafePath
-        }
-        return URL(fileURLWithPath: path).standardizedFileURL.path
-    }
-
     static func canonicalExisting(_ path: String) throws -> String {
         guard let buffer = realpath(path, nil) else { throw RecoveryFailure.system("realpath", errno) }
         defer { free(buffer) }
@@ -80,17 +80,20 @@ enum RecoveryFileSystem {
         close(try directory(path))
     }
 
-    static func directoryWalkPath(_ path: String) throws -> String {
-        let path = try normalized(path)
-        // Foundation commonly returns /var for the system-managed /private/var
-        // alias. Accept only these verified OS aliases, never user-made links.
-        for (alias, target) in [("/var", "/private/var"), ("/tmp", "/private/tmp")] {
-            if path == alias || inside(path, alias) {
-                guard try canonicalExisting(alias) == target else { throw RecoveryFailure.unsafePath }
-                return target + path.dropFirst(alias.count)
-            }
+    static func directoryWalkPath(_ path: String, requireNormalized: Bool = false) throws -> String {
+        let components = path.unicodeScalars.split(separator: "/").map(String.init)
+        guard path.unicodeScalars.first == "/", !path.utf8.contains(0),
+              !components.contains("."), !components.contains("..") else { throw RecoveryFailure.unsafePath }
+        // Foundation can change the spelling of /private/tmp depending on
+        // whether the file exists. Check the path syntax before resolving aliases.
+        let normalized = "/" + components.joined(separator: "/")
+        guard !requireNormalized || path == normalized else { throw RecoveryFailure.unsafePath }
+        for (alias, target) in [("/var", "/private/var"), ("/tmp", "/private/tmp")]
+        where normalized == alias || inside(normalized, alias) {
+            guard try canonicalExisting(alias) == target else { throw RecoveryFailure.unsafePath }
+            return target + normalized.dropFirst(alias.count)
         }
-        return path
+        return normalized
     }
 
     static func directory(_ path: String, create: Bool = false) throws -> Int32 {
@@ -98,7 +101,7 @@ enum RecoveryFileSystem {
         var fd = open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC)
         guard fd >= 0 else { throw RecoveryFailure.system("open", errno) }
         do {
-            for component in walkPath.split(separator: "/").map(String.init) {
+            for component in walkPath.unicodeScalars.split(separator: "/").map(String.init) {
                 var next = openat(fd, component, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
                 if next < 0 && errno == ENOENT && create {
                     guard mkdirat(fd, component, 0o700) == 0 || errno == EEXIST else {
@@ -118,29 +121,56 @@ enum RecoveryFileSystem {
     }
 
     static func snapshot(at fd: Int32, name: String, includeTree: Bool = true) throws -> RecoverySnapshot {
+        try snapshot(at: fd, name: name, includeTree: includeTree, trackChanges: false, allowLink: false)
+    }
+
+    static func trashReviewSnapshot(_ url: URL) -> RecoverySnapshot? {
+        guard url.isFileURL,
+              let path = try? directoryWalkPath(url.path),
+              let parent = try? directory((path as NSString).deletingLastPathComponent) else { return nil }
+        defer { close(parent) }
+        return try? snapshot(at: parent, name: (path as NSString).lastPathComponent,
+                             includeTree: true, trackChanges: true, allowLink: false)
+    }
+
+    private static func snapshot(at fd: Int32, name: String, includeTree: Bool,
+                                 trackChanges: Bool, allowLink: Bool) throws -> RecoverySnapshot {
         var value = stat()
         guard fstatat(fd, name, &value, AT_SYMLINK_NOFOLLOW) == 0 else {
             if errno == ENOENT { throw RecoveryFailure.missing }
             throw RecoveryFailure.system("read metadata", errno)
         }
-        let snapshot = RecoverySnapshot(value)
-        guard snapshot.isDirectory || snapshot.isRegularFile else { throw RecoveryFailure.unsafePath }
+        let snapshot = RecoverySnapshot(value, trackChanges: trackChanges)
+        let isLink = value.st_mode & UInt16(S_IFMT) == UInt16(S_IFLNK)
+        guard snapshot.isDirectory || snapshot.isRegularFile || (allowLink && isLink) else {
+            throw RecoveryFailure.unsafePath
+        }
         if snapshot.isDirectory && includeTree {
             let child = openat(fd, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
             guard child >= 0 else { throw RecoveryFailure.system("verify directory", errno) }
             defer { close(child) }
             var opened = stat()
-            guard fstat(child, &opened) == 0, RecoverySnapshot(opened) == snapshot else { throw RecoveryFailure.changed }
+            guard fstat(child, &opened) == 0, RecoverySnapshot(opened, trackChanges: trackChanges) == snapshot else {
+                throw RecoveryFailure.changed
+            }
             var digest = SHA256()
             for entry in try names(in: child) {
                 if Task.isCancelled { throw RecoveryFailure.cancelled }
-                let item = try self.snapshot(at: child, name: entry)
+                // Framework links inside application bundles are reviewed as links, never followed.
+                let item = try self.snapshot(at: child, name: entry, includeTree: true,
+                                             trackChanges: trackChanges, allowLink: trackChanges)
                 let metadata = "\(entry.utf8.count):\(entry):\(item.device):\(item.inode):\(item.mode):\(item.size):\(item.modifiedSeconds):\(item.modifiedNanoseconds):\(item.treeDigest ?? "")"
                 digest.update(data: Data(metadata.utf8))
+                if let seconds = item.changeSeconds, let nanoseconds = item.changeNanoseconds {
+                    digest.update(data: Data(":\(seconds):\(nanoseconds)".utf8))
+                }
             }
             var after = stat()
-            guard fstat(child, &after) == 0, RecoverySnapshot(after) == snapshot else { throw RecoveryFailure.changed }
-            return RecoverySnapshot(value, treeDigest: digest.finalize().map { String(format: "%02x", $0) }.joined())
+            guard fstat(child, &after) == 0, RecoverySnapshot(after, trackChanges: trackChanges) == snapshot else {
+                throw RecoveryFailure.changed
+            }
+            return RecoverySnapshot(value, treeDigest: digest.finalize().map { String(format: "%02x", $0) }.joined(),
+                                    trackChanges: trackChanges)
         }
         return snapshot
     }
@@ -170,6 +200,72 @@ enum RecoveryFileSystem {
         }
         _ = fsync(sourceFD)
         _ = fsync(targetFD)
+    }
+
+    /// Write to a private staging directory on the destination volume, then publish the whole copy exclusively.
+    static func saveCopy(from sourceFD: Int32, name: String, expected: RecoverySnapshot,
+                         to targetFD: Int32, target: String) throws {
+        var destination = stat()
+        guard fstatat(targetFD, target, &destination, AT_SYMLINK_NOFOLLOW) != 0 else {
+            throw RecoveryFailure.copyDestinationExists
+        }
+        guard errno == ENOENT else { throw RecoveryFailure.system("check copy destination", errno) }
+
+        let before = try snapshot(at: sourceFD, name: name, includeTree: true, trackChanges: true, allowLink: false)
+        guard before.sameObject(as: expected) else { throw RecoveryFailure.unverified }
+        let staging = ".cachora-copy-" + UUID().uuidString
+        guard mkdirat(targetFD, staging, 0o700) == 0 else { throw RecoveryFailure.system("prepare copy", errno) }
+        let staged = try snapshot(at: targetFD, name: staging, includeTree: false)
+        defer { try? erase(at: targetFD, name: staging, expected: staged, temporaryCopy: true) }
+        let stagingFD = openat(targetFD, staging, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard stagingFD >= 0 else { throw RecoveryFailure.system("open copy staging directory", errno) }
+        defer { close(stagingFD) }
+        var opened = stat()
+        guard fstat(stagingFD, &opened) == 0, RecoverySnapshot(opened).sameObject(as: staged) else {
+            throw RecoveryFailure.changed
+        }
+        try copyNode(from: sourceFD, name: name, to: stagingFD, target: "copy")
+        guard try snapshot(at: sourceFD, name: name, includeTree: true, trackChanges: true, allowLink: false) == before else {
+            throw RecoveryFailure.recoveryCopyChanged
+        }
+        do {
+            try move(from: stagingFD, name: "copy", to: targetFD, target: target)
+        } catch RecoveryFailure.conflict {
+            throw RecoveryFailure.copyDestinationExists
+        }
+    }
+
+    private static func copyNode(from sourceFD: Int32, name: String, to targetFD: Int32, target: String) throws {
+        if Task.isCancelled { throw CancellationError() }
+        let before = try snapshot(at: sourceFD, name: name, includeTree: false, trackChanges: true, allowLink: false)
+        let source = openat(sourceFD, name, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC | (before.isDirectory ? O_DIRECTORY : 0))
+        guard source >= 0 else { throw RecoveryFailure.system("open recovery copy", errno) }
+        defer { close(source) }
+        var opened = stat()
+        guard fstat(source, &opened) == 0, RecoverySnapshot(opened, trackChanges: true) == before else {
+            throw RecoveryFailure.recoveryCopyChanged
+        }
+        let destination: Int32
+        if before.isDirectory {
+            guard mkdirat(targetFD, target, 0o700) == 0 else { throw RecoveryFailure.system("create copy folder", errno) }
+            destination = openat(targetFD, target, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        } else {
+            destination = openat(targetFD, target, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
+        }
+        guard destination >= 0 else { throw RecoveryFailure.system("create recovery copy", errno) }
+        defer { close(destination) }
+        if before.isDirectory {
+            for child in try names(in: source) {
+                try copyNode(from: source, name: child, to: destination, target: child)
+            }
+        }
+        let flags = copyfile_flags_t(before.isDirectory ? COPYFILE_METADATA : COPYFILE_ALL)
+        guard fcopyfile(source, destination, nil, flags) == 0 else {
+            throw RecoveryFailure.system("copy recovery item", errno)
+        }
+        guard fstat(source, &opened) == 0, RecoverySnapshot(opened, trackChanges: true) == before else {
+            throw RecoveryFailure.recoveryCopyChanged
+        }
     }
 
     static func read(at fd: Int32, name: String) throws -> Data {
@@ -217,8 +313,8 @@ enum RecoveryFileSystem {
         _ = fsync(fd)
     }
 
-    /// Only called for an explicitly confirmed object inside the private recovery store.
-    static func erase(at parent: Int32, name: String, expected: RecoverySnapshot) throws {
+    /// Only called for a confirmed recovery object or a staging directory created for a new copy.
+    static func erase(at parent: Int32, name: String, expected: RecoverySnapshot, temporaryCopy: Bool = false) throws {
         let current = try snapshot(at: parent, name: name, includeTree: false)
         guard current.sameObject(as: expected) else { throw RecoveryFailure.changed }
         if current.isDirectory {
@@ -229,6 +325,7 @@ enum RecoveryFileSystem {
             guard fstat(child, &value) == 0, RecoverySnapshot(value).sameObject(as: current) else {
                 throw RecoveryFailure.changed
             }
+            if temporaryCopy { _ = fchmod(child, 0o700) }
             for entry in try names(in: child) {
                 var metadata = stat()
                 guard fstatat(child, entry, &metadata, AT_SYMLINK_NOFOLLOW) == 0 else {
@@ -238,7 +335,7 @@ enum RecoveryFileSystem {
                     // Unlinking the link itself never traverses its destination.
                     guard unlinkat(child, entry, 0) == 0 else { throw RecoveryFailure.system("delete link", errno) }
                 } else {
-                    try erase(at: child, name: entry, expected: RecoverySnapshot(metadata))
+                    try erase(at: child, name: entry, expected: RecoverySnapshot(metadata), temporaryCopy: temporaryCopy)
                 }
             }
             guard unlinkat(parent, name, AT_REMOVEDIR) == 0 else { throw RecoveryFailure.system("delete recovery directory", errno) }
