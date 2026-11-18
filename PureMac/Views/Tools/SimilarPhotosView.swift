@@ -199,8 +199,8 @@ struct SimilarPhotosView: View {
         }
         .sheet(item: $pendingReview) { selection in
             TrashReviewSheet(title: "Review selected photos", selection: selection, isFixture: model.sampleFolder != nil,
-                             details: "Every group keeps at least one photo.") { urls in
-                Task { await model.moveReviewedPhotos(urls) }
+                             details: "Every group keeps at least one photo.") { review in
+                Task { await model.moveReviewedPhotos(review.urls) }
             }
         }
         .onDisappear {
