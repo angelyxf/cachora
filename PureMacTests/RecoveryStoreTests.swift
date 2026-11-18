@@ -65,7 +65,10 @@ enum RecoveryChecks {
 
     static func fixture(_ name: String, _ body: (Fixture) async throws -> Void) async throws {
         let repository = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        let root = repository.appendingPathComponent("build-local/test-workspaces/\(name)-\(UUID().uuidString)")
+        let location = repository.appendingPathComponent("build-local/test-workspaces/\(name)-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: location, withIntermediateDirectories: true,
+                                                attributes: [.posixPermissions: 0o700])
+        let root = location.standardizedFileURL
         let fixture = Fixture(root: root)
         for parent in [fixture.cache, fixture.sentinel.deletingLastPathComponent(), fixture.outside.deletingLastPathComponent()] {
             try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
@@ -186,6 +189,79 @@ enum RecoveryChecks {
                 try Data("ALTERED-RECOVERY-COPY".utf8).write(to: f.object(entry.id))
                 try await expectFailure { _ = try await store.restore(entry.id) }
                 try require(!FileManager.default.fileExists(atPath: source.path), "Altered object was restored")
+            }
+        }),
+        ("an open file changed in Recovery can be saved separately", {
+            try await fixture("save-open-log") { f in
+                let source = try f.file("running.log")
+                let original = try Data(contentsOf: source)
+                let writer = try FileHandle(forWritingTo: source)
+                defer { try? writer.close() }
+                try writer.seekToEnd()
+                let store = f.store()
+                let entry = try await f.stage(source, store: store)
+                let later = Data("more generated log lines".utf8)
+                try writer.write(contentsOf: later)
+                try writer.close()
+                let catalog = try await store.catalog()
+                try require(catalog.entries.first?.canSaveCopy == true && catalog.entries.first?.canRestore == false,
+                            "The changed file still advertised ordinary restore")
+                try await expectFailure { _ = try await store.restore(entry.id) }
+                let target = f.home.appendingPathComponent("Documents/running-copy.log")
+                try await store.saveCopy(entry.id, to: target)
+                try require(try Data(contentsOf: target) == original + later, "The copy lost the new log lines")
+                try require(try Data(contentsOf: f.object(entry.id)) == original + later, "Saving the copy changed Recovery")
+                try require(!FileManager.default.fileExists(atPath: source.path), "Saving changed the original location")
+                try await expectFailure { try await store.saveCopy(entry.id, to: target) }
+                try await expectFailure { try await store.saveCopy(entry.id, to: source) }
+                try await expectFailure { try await store.saveCopy(entry.id, to: f.vault.appendingPathComponent("new-copy")) }
+                try require(try Data(contentsOf: target) == original + later, "The existing destination was overwritten")
+            }
+        }),
+        ("a nested change can be copied with the directory metadata and hidden files", {
+            try await fixture("save-changed-directory") { f in
+                let source = try f.file("folder/.hidden/log.txt")
+                let included = try f.file("folder/unchanged.txt")
+                let unchanged = try Data(contentsOf: included)
+                let folder = f.cache.appendingPathComponent("folder")
+                let store = RecoveryStore(root: f.vault, allowedRoots: [f.cache], copyDestinationRoot: f.home)
+                let entry = try await f.stage(folder, store: store)
+                let stored = f.object(entry.id).appendingPathComponent(".hidden/log.txt")
+                let changed = Data("longer fixture log".utf8)
+                try changed.write(to: stored)
+                try FileManager.default.setAttributes([.posixPermissions: 0o640], ofItemAtPath: stored.path)
+                let attribute = Data("fixture-only".utf8)
+                let result = attribute.withUnsafeBytes { setxattr(stored.path, "com.cachora.sample", $0.baseAddress, $0.count, 0, 0) }
+                try require(result == 0, "Could not add a fixture extended attribute")
+                let catalog = try await store.catalog()
+                try require(catalog.entries.first?.state == .copyChanged, "The catalog missed a nested change")
+                let rejected = f.outside.deletingLastPathComponent().appendingPathComponent("forbidden")
+                try await expectFailure { try await store.saveCopy(entry.id, to: rejected) }
+                let target = f.home.appendingPathComponent("Documents/copy")
+                try await store.saveCopy(entry.id, to: target)
+                let file = target.appendingPathComponent(".hidden/log.txt")
+                try require(try Data(contentsOf: file) == changed, "The nested change was not copied")
+                try require(try Data(contentsOf: target.appendingPathComponent("unchanged.txt")) == unchanged, "A sibling was lost")
+                let mode = try FileManager.default.attributesOfItem(atPath: file.path)[.posixPermissions] as? NSNumber
+                try require(mode?.intValue == 0o640, "File permissions were not preserved")
+                var metadata = Data(count: attribute.count)
+                let count = metadata.withUnsafeMutableBytes { getxattr(file.path, "com.cachora.sample", $0.baseAddress, $0.count, 0, 0) }
+                try require(count == attribute.count && metadata == attribute, "Extended attributes were not preserved")
+                try require(!FileManager.default.fileExists(atPath: rejected.path), "Saving escaped the test home")
+                try require(try Data(contentsOf: stored) == changed, "The stored directory was altered")
+                try require(!FileManager.default.fileExists(atPath: source.path), "Saving recreated the original directory")
+            }
+        }),
+        ("a replacement in Recovery cannot be exported as the original", {
+            try await fixture("save-replaced-object") { f in
+                let store = f.store()
+                let entry = try await f.stage(f.file(), store: store)
+                try Data("unrelated fixture file".utf8).write(to: f.object(entry.id), options: .atomic)
+                let catalog = try await store.catalog()
+                try require(catalog.entries.first?.state == .missing, "Replacement was offered as an export")
+                let target = f.home.appendingPathComponent("Documents/replacement")
+                try await expectFailure { try await store.saveCopy(entry.id, to: target) }
+                try require(!FileManager.default.fileExists(atPath: target.path), "An unrelated object was exported")
             }
         }),
         ("permanent deletion requires explicit confirmation", {
@@ -328,20 +404,36 @@ enum RecoveryChecks {
                 try await expectFailure { _ = try await f.stage(source) }
             }
         }),
-        ("system temporary alias round trip remains inside its test directory", {
+        ("both temporary path spellings survive staging and reloading", {
             try await fixture("system-alias") { _ in
-                let home = FileManager.default.temporaryDirectory.appendingPathComponent("PureMac-Recovery-Alias-\(UUID().uuidString)")
-                try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+                let name = "PureMac-Recovery-Alias-\(UUID().uuidString)"
+                let home = URL(fileURLWithPath: "/private/tmp/" + name, isDirectory: true)
+                let alias = URL(fileURLWithPath: "/tmp/" + name, isDirectory: true)
+                try FileManager.default.createDirectory(at: home, withIntermediateDirectories: false,
+                                                        attributes: [.posixPermissions: 0o700])
                 defer { try? FileManager.default.removeItem(at: home) }
                 let cache = home.appendingPathComponent("cache")
-                try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+                try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: false)
                 let source = cache.appendingPathComponent("sample.bin")
                 let bytes = Data("DISPOSABLE-ALIAS-TEST".utf8); try bytes.write(to: source)
                 guard let expected = RecoverySnapshot.capture(source.path) else { throw Failure(description: "System alias could not be measured") }
-                let store = RecoveryStore(root: home.appendingPathComponent("recovery"), allowedRoots: [cache])
-                let entry = try await store.stage(path: source.path, name: "sample", category: "User Cache", bytes: 20, expected: expected).entry
-                _ = try await store.restore(entry.id)
-                try require(try Data(contentsOf: source) == bytes, "System alias restore failed")
+                let vault = home.appendingPathComponent("recovery")
+                let store = RecoveryStore(root: vault, allowedRoots: [alias.appendingPathComponent("cache")])
+                for prefix in [home.path, alias.path] {
+                    let path = prefix + "/cache/sample.bin"
+                    let entry = try await store.stage(path: path, name: "sample", category: "User Cache",
+                                                      bytes: Int64(bytes.count), expected: expected).entry
+                    try require(entry.originalPath == path && !FileManager.default.fileExists(atPath: source.path),
+                                "Staging did not retain the original spelling and move the sample")
+                    let reopened = RecoveryStore(root: alias.appendingPathComponent("recovery"), allowedRoots: [cache])
+                    _ = try await reopened.restore(entry.id)
+                    try require(try Data(contentsOf: source) == bytes, "System alias restore failed")
+                }
+                try await expectFailure {
+                    _ = try await store.stage(path: cache.path + "/../cache/sample.bin", name: "sample",
+                                              category: "User Cache", bytes: Int64(bytes.count), expected: expected)
+                }
+                try require(try Data(contentsOf: source) == bytes, "Rejected traversal changed the sample")
             }
         }),
     ] }
