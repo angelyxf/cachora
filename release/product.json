@@ -4,7 +4,7 @@
   "bundle_identifier": "io.github.angelyxf.cachora",
   "storage_directory": "Cachora",
   "version": "0.1.0",
-  "build": "18",
+  "build": "20",
   "github_repository": "angelyxf/cachora",
   "beta": false,
   "chinese_name": "轻盘"
