@@ -63,10 +63,14 @@ final class AppState: ObservableObject {
         _ locations: Locations,
         _ completion: @escaping (Set<URL>) -> Void
     ) -> Void
-    typealias AppFileTrasher = @MainActor (
-        _ urls: [URL],
-        _ completion: @escaping ([URL], Bool, [URL], [URL]) -> Void
-    ) -> Void
+    typealias AppFileTrasher = @Sendable (URL) throws -> Void
+
+    private struct AppTrashResult: Sendable {
+        var moved: [URL] = []
+        var changed: [URL] = []
+        var denied: Set<URL> = []
+        var failures: [String] = []
+    }
 
     // MARK: - Scan / Clean State
 
@@ -122,11 +126,7 @@ final class AppState: ObservableObject {
     @Published var isRemovingAppFiles = false
     @Published var removalError: String?
     @Published var removalNeedsFullDiskAccess = false
-    /// Snapshot of the URLs that failed the most recent uninstall due to a
-    /// permission denial. Frozen at finishRemoval time so AppFilesView's
-    /// retry path operates on the failed batch even if the user clicks a
-    /// different app or mutates selection while the FDA sheet is open.
-    @Published var lastFailedRemovalURLs: [URL] = []
+    private var uninstallRetry: (review: TrashSelection, appName: String)?
     @Published var appFileScanLocationCount: Int = 0
     /// Set when a right-clicked app arrives via the Finder Services handler.
     /// MainWindow consumes it on both onChange AND onAppear so a request that
@@ -187,7 +187,9 @@ final class AppState: ObservableObject {
         performStartupTasks: Bool = true,
         locationsProvider: @escaping () -> Locations = Locations.init,
         appFileScanner: @escaping AppFileScanner = AppState.defaultAppFileScanner,
-        appFileTrasher: @escaping AppFileTrasher = AppState.defaultAppFileTrasher,
+        appFileTrasher: @escaping AppFileTrasher = { url in
+            try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        },
         cleanupEnvironment: CleanupEnvironment = .current,
         scheduler: SchedulerService? = nil
     ) {
@@ -204,25 +206,7 @@ final class AppState: ObservableObject {
             self.locationsProvider = locationsProvider
         }
         self.appFileScanner = appFileScanner
-        if let sampleTrash = cleanupEnvironment.sampleTrash {
-            self.appFileTrasher = { urls, completion in
-                DispatchQueue.global(qos: .userInitiated).async {
-                    var moved: [URL] = []
-                    var failed: [URL] = []
-                    for url in urls {
-                        do {
-                            try sampleTrash(url)
-                            moved.append(url)
-                        } catch {
-                            failed.append(url)
-                        }
-                    }
-                    completion(moved, false, [], failed)
-                }
-            }
-        } else {
-            self.appFileTrasher = appFileTrasher
-        }
+        self.appFileTrasher = cleanupEnvironment.sampleTrash ?? appFileTrasher
 
         // Listen for right-click "Uninstall with PureMac" hand-offs from the
         // Finder Services handler in AppDelegate.
@@ -332,27 +316,14 @@ final class AppState: ObservableObject {
         }
     }
 
-    func removeSelectedFiles(confirmedURLs: Set<URL>? = nil) {
-        guard cleanupEnvironment.blockedReason == nil else { return }
-        // Re-entrance guard: if a previous removal is still resolving and
-        // the FDA sheet/retry hasn't finished, a second call would race-
-        // overwrite `lastFailedRemovalURLs` before the first batch's retry
-        // closure read it. We can't gate on `removalNeedsFullDiskAccess`
-        // alone — AppFilesView clears that flag the moment it hands off to
-        // the coordinator, leaving a window where a second remove call
-        // would pass the guard while the coordinator is still polling.
-        // PermissionCoordinator.isRequesting covers the full sheet-open +
-        // retry-pending span.
-        guard !isRemovingAppFiles, !removalNeedsFullDiskAccess,
-              !PermissionCoordinator.shared.isRequesting else {
-            Logger.shared.log("Refused duplicate removeSelectedFiles while FDA flow is active", level: .info)
-            return
-        }
+    func removeSelectedFiles(review: TrashSelection) {
+        guard cleanupEnvironment.blockedReason == nil, !isRemovingAppFiles,
+              !removalNeedsFullDiskAccess, !PermissionCoordinator.shared.isRequesting else { return }
         // Safety guard: never allow a high-risk home dotpath (listed in
         // Conditions.swift) to be trashed no matter how it ended up in the
         // selection. Catches selection-time additions that slipped past the
         // scanner-side filters.
-        let allURLs = Array(confirmedURLs ?? selectedFiles)
+        let allURLs = review.urls.sorted { $0.path < $1.path }
         let bundlePath = selectedApp?.path.standardizedFileURL.path
         let resolvedBundlePath = selectedApp?.path.resolvingSymlinksInPath().standardizedFileURL.path
         let (urls, blocked): ([URL], [URL]) = allURLs.reduce(into: ([], [])) { acc, url in
@@ -385,62 +356,45 @@ final class AppState: ObservableObject {
             return
         }
         isRemovingAppFiles = true
-        appFileTrasher(urls) { [weak self] removed, needsFullDiskAccess, needsAdmin, failed in
-            Task { @MainActor in
-                guard let self else { return }
-
-                self.applyRemovedAppFiles(removed)
-
-                // Release channels never turn a failed Trash move into permanent admin deletion.
-                self.finishRemoval(
-                    removedAny: !removed.isEmpty,
-                    needsFullDiskAccess: needsFullDiskAccess,
-                    attemptedAdmin: false,
-                    failed: failed + needsAdmin,
-                    adminError: nil
-                )
-            }
+        let trasher = appFileTrasher
+        let canRequestAccess = !cleanupEnvironment.isFixture && !hasFullDiskAccess
+        let appName = selectedApp?.appName ?? String(localized: "Application")
+        let checked = review.subset(Set(urls))
+        Task { [weak self] in
+            let result = await Task.detached(priority: .userInitiated) {
+                Self.trashReviewedAppFiles(checked, canRequestAccess: canRequestAccess, trash: trasher)
+            }.value
+            self?.finishRemoval(result, review: checked, appName: appName)
         }
     }
 
-    /// Move files to the Trash via FileManager.trashItem so the syscall
-    /// originates from PureMac itself - TCC then registers PureMac in the
-    /// Full Disk Access list. The previous AppleScript-via-Finder bridge
-    /// caused the syscall to originate from Finder, which is why granting
-    /// FDA to PureMac made no difference (issue #75).
-    private static func defaultAppFileTrasher(urls: [URL], completion: @escaping ([URL], Bool, [URL], [URL]) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let hasFullDiskAccess = FullDiskAccessManager.shared.hasFullDiskAccess
-            var removed: [URL] = []
-            var needsFullDiskAccess = false
-            var needsAdmin: [URL] = []
-            var failed: [URL] = []
-
-            for url in urls {
-                var resulting: NSURL?
-                do {
-                    try FileManager.default.trashItem(at: url, resultingItemURL: &resulting)
-                    removed.append(url)
-                } catch {
-                    let nsError = error as NSError
-                    if Self.isMissingFileError(nsError) {
-                        Logger.shared.log("Trash skipped for \(url.path): file no longer exists", level: .info)
-                        removed.append(url)
-                    } else if Self.isPermissionDeniedError(nsError) {
-                        if hasFullDiskAccess || Self.isLikelyAdministratorRemovalPath(url) {
-                            needsAdmin.append(url)
-                        } else {
-                            needsFullDiskAccess = true
-                            failed.append(url)
-                        }
-                    } else {
-                        Logger.shared.log("Trash failed for \(url.path): \(error.localizedDescription)", level: .error)
-                        failed.append(url)
-                    }
+    private nonisolated static func trashReviewedAppFiles(_ review: TrashSelection, canRequestAccess: Bool,
+                                                          trash: AppFileTrasher) -> AppTrashResult {
+        let urls = review.urls.sorted { $0.path < $1.path }
+        var result = AppTrashResult()
+        if urls.count > 1 {
+            result.changed = review.changedURLs()
+            guard result.changed.isEmpty else { return result }
+        }
+        for url in urls {
+            do {
+                try review.requireUnchanged(url)
+                try trash(url)
+                result.moved.append(url)
+            } catch RecoveryFailure.changed {
+                result.changed.append(url)
+            } catch {
+                let failure = error as NSError
+                if isMissingFileError(failure) {
+                    result.changed.append(url)
+                } else if canRequestAccess && isPermissionDeniedError(failure) && !isLikelyAdministratorRemovalPath(url) {
+                    result.denied.insert(url)
+                } else {
+                    result.failures.append("\(url.path): \(error.localizedDescription)")
                 }
             }
-            completion(removed, needsFullDiskAccess, needsAdmin, failed)
         }
+        return result
     }
 
     private func applyRemovedAppFiles(_ urls: [URL]) {
@@ -459,77 +413,41 @@ final class AppState: ObservableObject {
         Logger.shared.log("Removed \(urls.count) file\(urls.count == 1 ? "" : "s")", level: .info)
     }
 
-    private func finishRemoval(
-        removedAny: Bool,
-        needsFullDiskAccess: Bool,
-        attemptedAdmin: Bool,
-        failed: [URL],
-        adminError: String?
-    ) {
-        // Freeze the failed batch before the FDA sheet opens so the retry
-        // path can't be poisoned by later selection edits or app switches.
+    private func finishRemoval(_ result: AppTrashResult, review: TrashSelection, appName: String) {
         isRemovingAppFiles = false
-        lastFailedRemovalURLs = needsFullDiskAccess ? failed : []
-        removalNeedsFullDiskAccess = needsFullDiskAccess
-        if let message = removalFailureMessage(
-            needsFullDiskAccess: needsFullDiskAccess,
-            attemptedAdmin: attemptedAdmin,
-            failed: failed,
-            adminError: adminError
-        ) {
-            removalError = message
-            Logger.shared.log(message, level: .error)
+        applyRemovedAppFiles(result.moved)
+        if !result.moved.isEmpty { pruneMissingInstalledApps() }
+        var messages: [String] = []
+        if !result.changed.isEmpty { messages.append(TrashSelection.changedMessage(result.changed)) }
+        let failedCount = result.failures.count + result.denied.count
+        if failedCount > 0 {
+            let count = Self.fileCountLabel(failedCount)
+            messages.append(String(localized: "\(count) could not be removed. Check that the items still exist and are not in use."))
         }
-        if removedAny {
-            pruneMissingInstalledApps()
+        for failure in result.failures {
+            Logger.shared.log("Trash failed for " + failure, level: .error)
+        }
+        removalError = messages.isEmpty ? nil : messages.joined(separator: "\n\n")
+        // Keep the exact review across permission changes, including its original file identities.
+        if result.changed.isEmpty && !result.denied.isEmpty {
+            uninstallRetry = (review.subset(result.denied), appName)
+            removalNeedsFullDiskAccess = true
         }
     }
 
-    /// Public bridge so views (e.g. AppFilesView) can build CleanableItem rows
-    /// from raw URLs when retrying via the PermissionCoordinator.
-    func makeUninstallCleanableItem(for url: URL) -> CleanableItem {
-        cleanableUninstallItem(for: url)
-    }
-
-    private func cleanableUninstallItem(for url: URL) -> CleanableItem {
-        let values = try? url.resourceValues(forKeys: [
-            .totalFileAllocatedSizeKey,
-            .fileAllocatedSizeKey,
-            .contentModificationDateKey,
-        ])
-        let size = Int64(values?.totalFileAllocatedSize ?? values?.fileAllocatedSize ?? 0)
-        return CleanableItem(
-            name: url.lastPathComponent,
-            path: url.path,
-            size: size,
-            category: .systemJunk,
-            isSelected: true,
-            lastModified: values?.contentModificationDate
-        )
-    }
-
-    private func removalFailureMessage(
-        needsFullDiskAccess: Bool,
-        attemptedAdmin: Bool,
-        failed: [URL],
-        adminError: String?
-    ) -> String? {
-        if needsFullDiskAccess {
-            let prefix = failed.isEmpty ? String(localized: "Some selected files") : Self.fileCountLabel(failed.count)
-            return String(localized: "\(prefix) could not be removed because Cachora does not have Full Disk Access. Grant Full Disk Access in System Settings, then try again.")
+    func requestUninstallAccess() {
+        guard let retry = uninstallRetry else { return }
+        uninstallRetry = nil
+        removalNeedsFullDiskAccess = false
+        removalError = nil
+        PermissionCoordinator.shared.requestAccess(
+            context: .uninstall(appName: retry.appName, failedCount: retry.review.urls.count),
+            failedPaths: retry.review.urls.map(\.path)
+        ) { [weak self] in
+            guard let self else { return }
+            self.hasFullDiskAccess = true
+            self.removeSelectedFiles(review: retry.review)
         }
-
-        if !failed.isEmpty {
-            if attemptedAdmin {
-                return String(localized: "\(Self.fileCountLabel(failed.count)) could not be removed with administrator privileges. The items may have changed or macOS denied access.")
-            }
-            return String(localized: "\(Self.fileCountLabel(failed.count)) could not be removed. Check that the items still exist and are not in use.")
-        }
-
-        if let adminError, !adminError.isEmpty {
-            return String(localized: "Administrator removal failed: \(adminError)")
-        }
-        return nil
     }
 
     private static func fileCountLabel(_ count: Int) -> String {
@@ -836,37 +754,19 @@ final class AppState: ObservableObject {
         FullDiskAccessManager.shared.openFullDiskAccessSettings()
     }
 
-    /// Request Full Disk Access via the rich PermissionCoordinator sheet and
-    /// retry the supplied items once the user grants permission. Used by both
-    /// the cleanup and app-uninstall flows so they share a single UI surface.
-    ///
-    /// The retry callback captures `items` directly rather than reading
-    /// `pendingPermissionRetryItems` at fire time — that field is mutable
-    /// app-wide and a second permission request would clobber it before the
-    /// first callback resolves, sending the wrong items to retryCleanItems.
-    func requestFullDiskAccessAndRetry(items: [CleanableItem], context: PermissionCoordinator.PromptContext) {
+    func requestCleanupAccessAndRetry(items: [CleanableItem]) {
         pendingPermissionRetryItems = items
-        let capturedItems = items
         PermissionCoordinator.shared.requestAccess(
-            context: context,
+            context: .cleanup(failedCount: items.count),
             failedPaths: items.map { $0.path }
         ) { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                await self.retryAfterFullDiskAccess(items: capturedItems, context: context)
+                self.pendingPermissionRetryItems = []
+                self.cleanError = nil
+                self.cleanErrorIsFDAFixable = false
+                if !items.isEmpty { await self.retryCleanItems(items) }
             }
-        }
-    }
-
-    func retryAfterFullDiskAccess(items: [CleanableItem], context: PermissionCoordinator.PromptContext) async {
-        pendingPermissionRetryItems = []
-        cleanError = nil
-        cleanErrorIsFDAFixable = false
-        guard !items.isEmpty else { return }
-        if case .uninstall = context {
-            removeSelectedFiles(confirmedURLs: Set(items.map { URL(fileURLWithPath: $0.path) }))
-        } else {
-            await retryCleanItems(items)
         }
     }
 

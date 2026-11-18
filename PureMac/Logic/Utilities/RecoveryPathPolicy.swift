@@ -20,10 +20,10 @@ enum RecoveryPathPolicy {
         return accepts(path: item.path, category: item.category.rawValue, snapshot: snapshot, home: home)
     }
 
-    static func accepts(path: String, category: String, snapshot: RecoverySnapshot, home: URL) -> Bool {
-        let base = home.path
-        guard path == (path as NSString).standardizingPath,
-              !ProviderPaths.isProviderOwned(path, homeDirectory: home) else { return false }
+    static func accepts(path source: String, category: String, snapshot: RecoverySnapshot, home: URL) -> Bool {
+        guard let path = try? RecoveryFileSystem.directoryWalkPath(source, requireNormalized: true),
+              let base = try? RecoveryFileSystem.directoryWalkPath(home.path),
+              !ProviderPaths.isProviderOwned(source, homeDirectory: home) else { return false }
         func within(_ roots: [String], whole: Bool = false) -> Bool {
             roots.contains { (whole && path == $0) || RecoveryFileSystem.inside(path, $0) }
         }
@@ -49,7 +49,8 @@ enum RecoveryPathPolicy {
             return false
         case "System Junk":
             // Older recovery records may still refer to system logs.
-            return within(systemJunkRoots(home: base)) || within(systemLogRoots)
+            let roots = systemJunkRoots(home: base).compactMap { try? RecoveryFileSystem.directoryWalkPath($0) }
+            return within(roots) || within(systemLogRoots)
         case "Trash Bins": return within([base + "/.Trash"])
         case "Mail Files":
             return within([base + "/Library/Mail Downloads", base + "/Library/Containers/com.apple.mail/Data/Library/Mail Downloads"])

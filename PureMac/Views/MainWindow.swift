@@ -78,10 +78,7 @@ struct MainWindow: View {
             let pending = appState.pendingPermissionRetryItems
             appState.cleanError = nil
             appState.cleanErrorIsFDAFixable = false
-            appState.requestFullDiskAccessAndRetry(
-                items: pending,
-                context: .cleanup(failedCount: pending.count)
-            )
+            appState.requestCleanupAccessAndRetry(items: pending)
         }
         .alert("Couldn't clean everything", isPresented: Binding(
             get: { appState.cleanError != nil && !appState.cleanErrorIsFDAFixable },
@@ -431,7 +428,7 @@ struct MainWindow: View {
         let sampleTrash = appState.cleanupEnvironment.sampleTrash
         switch selectedSection {
         case .recovery:
-            RecoveryCenterView(model: appState.recoveryCenter)
+            RecoveryCenterView(model: appState.recoveryCenter, sampleHome: sampleHome)
         case .apps:
             AppListView()
         case .orphans:
@@ -439,7 +436,8 @@ struct MainWindow: View {
         case .spaceExplorer:
             SpaceExplorerView(sampleFolder: sampleHome?.appendingPathComponent("Documents/Sample Files"))
         case .duplicates:
-            DuplicateFinderView(finder: DuplicateFinder(trashHandler: sampleTrash),
+            DuplicateFinderView(finder: DuplicateFinder(recoveryRoot: appState.cleanupEnvironment.recoveryRoot,
+                                                        trashHandler: sampleTrash),
                                 sampleFolder: sampleHome?.appendingPathComponent("Documents/Sample Files"))
         case .similarPhotos:
             SimilarPhotosView(finder: SimilarPhotoFinder(trashHandler: sampleTrash),

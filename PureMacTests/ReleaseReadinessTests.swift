@@ -67,15 +67,57 @@ private actor PhotoAnalysisUpdates {
                 let before = try Data(contentsOf: sample)
                 let environment = CleanupEnvironment(home: f.home, recoveryRoot: f.vault, isFixture: false, blockedReason: nil)
                 let state = AppState(performStartupTasks: false,
-                    appFileTrasher: { urls, completion in completion([], false, urls, []) }, cleanupEnvironment: environment)
+                    appFileTrasher: { _ in throw POSIXError(.EACCES) }, cleanupEnvironment: environment)
                 state.selectedFiles = [sample]
-                state.removeSelectedFiles(confirmedURLs: [sample])
+                state.removeSelectedFiles(review: await TrashSelection(urls: [sample]).reviewed())
                 for _ in 0..<100 where state.isRemovingAppFiles { try await Task.sleep(nanoseconds: 10_000_000) }
                 try require(!state.isRemovingAppFiles && state.selectedFiles.contains(sample),
                             "Administrator-only item was not retained as failed")
                 let after = try Data(contentsOf: sample)
                 try require(state.removalError != nil && after == before,
                             "A failed Trash move was replaced by administrator deletion")
+            }
+        }),
+        ("duplicate batches detect same-size edits before and between moves", {
+            try await RecoveryChecks.fixture("duplicate-content-recheck") { f in
+                let folder = f.home.appendingPathComponent("Duplicates")
+                let original = Data(repeating: 63, count: 8192)
+                let changed = Data(repeating: 64, count: original.count)
+                let base: TimeInterval = 1_600_000_000
+                let files = try duplicateSamples(["00-keep.txt", "01-copy.txt", "02-copy.txt"],
+                                                 bytes: original, in: folder, modifiedBase: base)
+                let edited = files[2]
+                let writeEdited: (Data) throws -> Void = { bytes in
+                    let handle = try FileHandle(forWritingTo: edited)
+                    defer { try? handle.close() }
+                    try handle.write(contentsOf: bytes)
+                    try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: base + 2)],
+                                                          ofItemAtPath: edited.path)
+                }
+                let environment = CleanupEnvironment(home: f.home, recoveryRoot: f.vault, isFixture: true, blockedReason: nil)
+                let trash = try requireSampleTrash(environment)
+                let finder = DuplicateFinder(recoveryRoot: f.vault, trashHandler: { url in
+                    try trash(url)
+                    try writeEdited(changed)
+                })
+                let selection = Set(files.dropFirst())
+                let stale = try duplicateGroup(in: try await finder.scan(folder: folder), containing: files[0])
+                try writeEdited(changed)
+                do {
+                    _ = try await finder.moveToTrash(group: stale, selectedIDs: selection)
+                    throw RecoveryChecks.Failure(description: "An edited copy passed duplicate batch preflight")
+                } catch DuplicateFinderError.contentChanged(let path) {
+                    try require(path == edited.path, "The wrong copy failed content validation")
+                }
+                try require(try Data(contentsOf: files[1]) == original, "A copy moved before the entire batch passed preflight")
+
+                try writeEdited(original)
+                let fresh = try duplicateGroup(in: try await finder.scan(folder: folder), containing: files[0])
+                let report = try await finder.moveToTrash(group: fresh, selectedIDs: selection)
+                try require(report.trashedFiles.map(\.url) == [files[1]] && report.failures.map(\.url) == [edited],
+                            "An edit between moves was not rechecked")
+                try require(try Data(contentsOf: edited) == changed && Data(contentsOf: files[0]) == original,
+                            "The changed copy or keeper was not preserved")
             }
         }),
         ("duplicate cancellation reports completed moves and keeps all remaining files", {
@@ -101,6 +143,102 @@ private actor PhotoAnalysisUpdates {
                 let remaining = try await DuplicateFinder().scan(folder: folder)
                 try require(remaining.groups.count == 1 && remaining.duplicateFileCount == 2,
                             "Remaining duplicates were not available for a fresh review")
+            }
+        }),
+        ("duplicate scan and move exclude the recovery root and its alias", {
+            try await RecoveryChecks.fixture("protected-duplicate-recovery") { f in
+                let vault = f.home.appendingPathComponent("Library/Application Support/Cachora/Recovery")
+                let documents = f.home.appendingPathComponent("Documents")
+                let bytes = Data("duplicate fixture data".utf8)
+                let ordinary = try duplicateSamples(["a.txt", "b.txt"], bytes: bytes, in: documents)
+                let payload = try duplicateSamples(["stored-copy.txt"], bytes: bytes, in: vault.appendingPathComponent("objects"))[0]
+                let alias = f.root.appendingPathComponent("home-alias")
+                try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: f.home)
+                let throughAlias = alias.appendingPathComponent("Library/Application Support/Cachora/Recovery/objects")
+                let environment = CleanupEnvironment(home: f.home, recoveryRoot: f.vault, isFixture: true, blockedReason: nil)
+                let finder = DuplicateFinder(recoveryRoot: vault, trashHandler: try requireSampleTrash(environment))
+                let safe = try await finder.scan(folder: f.home)
+                try require(safe.groups.count == 1 && Set(safe.groups[0].files.map(\.url)) == Set(ordinary),
+                            "Recovery files were included in the scan")
+                try require(safe.skippedFiles.contains { $0.reason == .recoveryStorage && $0.url.path == vault.path },
+                            "The scan did not report a pruned recovery root")
+                for folder in [vault, throughAlias] {
+                    do {
+                        _ = try await finder.scan(folder: folder)
+                        throw RecoveryChecks.Failure(description: "A recovery folder was accepted as a scan root")
+                    } catch DuplicateFinderError.recoveryStorage {}
+                }
+
+                // Model a result from before the protection was in place.
+                let old = try await DuplicateFinder(recoveryRoot: f.root.appendingPathComponent("separate-vault")).scan(folder: f.home)
+                let group = try duplicateGroup(in: old, containing: payload)
+                do {
+                    _ = try await finder.moveToTrash(group: group, selectedIDs: [payload])
+                    throw RecoveryChecks.Failure(description: "An old result moved a recovery file")
+                } catch DuplicateFinderError.recoveryStorage {}
+                let recoveryKeeper = DuplicateGroup(digest: group.digest,
+                    files: group.files.filter { $0.url == payload } + group.files.filter { $0.url != payload })
+                do {
+                    _ = try await finder.moveToTrash(group: recoveryKeeper, selectedIDs: [ordinary[0]])
+                    throw RecoveryChecks.Failure(description: "A recovery object counted as the retained original")
+                } catch DuplicateFinderError.recoveryStorage {}
+                let safeGroup = safe.groups[0]
+                let extra = safeGroup.files[1]
+                let moved = try await finder.moveToTrash(group: safeGroup, selectedIDs: [extra.url])
+                try require(moved.trashedFiles.map(\.url) == [extra.url], "The ordinary copy could not be moved")
+                try require(try Data(contentsOf: payload) == bytes, "The recovery payload was changed")
+                try require(try Data(contentsOf: safeGroup.keeper.url) == bytes, "The ordinary keeper was changed")
+            }
+        }),
+        ("uninstall rejects a same-name replacement and accepts a fresh review", {
+            try await RecoveryChecks.fixture("uninstall-confirm-again") { f in
+                let file = try f.file("editor.log")
+                let untouched = try f.file("unselected.log")
+                let untouchedBytes = try Data(contentsOf: untouched)
+                let environment = CleanupEnvironment(home: f.home, recoveryRoot: f.vault, isFixture: true, blockedReason: nil)
+                let state = AppState(performStartupTasks: false, cleanupEnvironment: environment,
+                                     scheduler: SchedulerService(defaults: nil))
+                state.discoveredFiles = [file, untouched]
+                state.selectedFiles = [file]
+                let review = await TrashSelection(urls: [file]).reviewed()
+                let replacement = Data("same name, new generated log".utf8)
+                try replacement.write(to: file, options: .atomic)
+                state.removeSelectedFiles(review: review)
+                for _ in 0..<100 where state.isRemovingAppFiles { try await Task.sleep(nanoseconds: 10_000_000) }
+                try require(state.removalError?.contains(file.path) == true && state.selectedFiles.contains(file),
+                            "The replacement did not require a new confirmation")
+                try require(try Data(contentsOf: file) == replacement, "A file outside the original review was moved")
+                state.removeSelectedFiles(review: await TrashSelection(urls: [file]).reviewed())
+                for _ in 0..<100 where state.isRemovingAppFiles { try await Task.sleep(nanoseconds: 10_000_000) }
+                try require(state.removalError == nil && !FileManager.default.fileExists(atPath: file.path),
+                            "A new confirmation did not move the verified file")
+                try require(try Data(contentsOf: untouched) == untouchedBytes, "An unselected file was changed")
+                let trash = f.root.appendingPathComponent("sample-trash")
+                let containers = try FileManager.default.contentsOfDirectory(at: trash, includingPropertiesForKeys: nil)
+                try require(containers.count == 1 && (try Data(contentsOf: containers[0].appendingPathComponent(file.lastPathComponent))) == replacement,
+                            "The fresh review did not reach the isolated Trash")
+            }
+        }),
+        ("app leftover review detects a nested edit even when size and modification date match", {
+            try await RecoveryChecks.fixture("leftover-confirm-again") { f in
+                let file = try f.file("org.cachora.retired/nested/cache.bin")
+                let leftover = f.cache.appendingPathComponent("org.cachora.retired")
+                let environment = CleanupEnvironment(home: f.home, recoveryRoot: f.vault, isFixture: true, blockedReason: nil)
+                let trash = try requireSampleTrash(environment)
+                let before = try Data(contentsOf: file)
+                let modified = try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date
+                let updated = Data(repeating: 0x43, count: before.count)
+                let review = await TrashSelection(urls: [leftover]).reviewed()
+                try updated.write(to: file)
+                if let modified { try FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: file.path) }
+                do {
+                    try OrphanSafetyPolicy.trashReviewedCandidate(leftover, review: review, sampleHome: f.home, trash: trash)
+                    throw RecoveryChecks.Failure(description: "An edited leftover directory was moved")
+                } catch RecoveryFailure.changed {}
+                try require(try Data(contentsOf: file) == updated, "The changed leftover was not preserved")
+                let fresh = await TrashSelection(urls: [leftover]).reviewed()
+                try OrphanSafetyPolicy.trashReviewedCandidate(leftover, review: fresh, sampleHome: f.home, trash: trash)
+                try require(!FileManager.default.fileExists(atPath: leftover.path), "A fresh review could not move the leftover")
             }
         }),
         ("duplicate cancellation during final verification retains the completed move", {
@@ -952,22 +1090,18 @@ private actor PhotoAnalysisUpdates {
                                        "CFBundleName": "Uninstall Sample", "CFBundlePackageType": "APPL"],
                     format: .xml, options: 0)
                 try plist.write(to: info)
+                let versions = app.appendingPathComponent("Contents/Frameworks/Sample.framework/Versions")
+                try FileManager.default.createDirectory(at: versions.appendingPathComponent("A"), withIntermediateDirectories: true)
+                try FileManager.default.createSymbolicLink(atPath: versions.appendingPathComponent("Current").path, withDestinationPath: "A")
                 try data.write(to: neighbor)
                 try data.write(to: related.appendingPathComponent("cache"))
                 let fixture = CleanupEnvironment(home: home, recoveryRoot: f.vault, isFixture: true, blockedReason: nil)
                 let trash = try requireSampleTrash(fixture)
-                let normal = CleanupEnvironment(home: home, recoveryRoot: f.vault, isFixture: false, blockedReason: nil)
-                var moved: [URL] = []
                 let state = AppState(performStartupTasks: false,
                     locationsProvider: { Locations(sampleHome: home) },
-                    appFileTrasher: { urls, completion in
-                        var failed: [URL] = []
-                        for url in urls {
-                            do { try trash(url); moved.append(url) }
-                            catch { failed.append(url) }
-                        }
-                        completion(moved, false, [], failed)
-                    }, cleanupEnvironment: normal, scheduler: SchedulerService(defaults: nil))
+                    appFileTrasher: trash,
+                    cleanupEnvironment: CleanupEnvironment(home: home, recoveryRoot: f.vault, isFixture: false, blockedReason: nil),
+                    scheduler: SchedulerService(defaults: nil))
                 state.presentExternalUninstall(appPath: app.path)
                 for _ in 0..<500 where state.selectedApp == nil {
                     try await Task.sleep(nanoseconds: 10_000_000)
@@ -984,11 +1118,12 @@ private actor PhotoAnalysisUpdates {
                 try require(!state.discoveredFiles.contains(where: { $0.path == parent.path }), "Containing directory appeared")
                 try require(state.selectedFiles.map(\.path) == [app.path], "Only the bundle should be preselected")
 
-                state.removeSelectedFiles(confirmedURLs: [parent])
-                try require(moved.isEmpty && state.removalError != nil, "Confirmation accepted the containing directory")
-                state.removeSelectedFiles(confirmedURLs: state.selectedFiles)
+                state.removeSelectedFiles(review: await TrashSelection(urls: [parent]).reviewed())
+                try require(FileManager.default.fileExists(atPath: app.path) && state.removalError != nil,
+                            "Confirmation accepted the containing directory")
+                state.removeSelectedFiles(review: await TrashSelection(urls: state.selectedFiles).reviewed())
                 for _ in 0..<500 where state.isRemovingAppFiles { try await Task.sleep(nanoseconds: 10_000_000) }
-                try require(moved.map(\.path) == [app.path] && !FileManager.default.fileExists(atPath: app.path),
+                try require(state.removalError == nil && !FileManager.default.fileExists(atPath: app.path),
                             "The selected bundle was not moved on its own")
                 try require(try Data(contentsOf: neighbor) == data, "A sibling file changed")
                 try require(try Data(contentsOf: related.appendingPathComponent("cache")) == data, "An unselected cache changed")
@@ -1051,7 +1186,7 @@ private actor PhotoAnalysisUpdates {
                 pathValidator: { RecoveryPathPolicy.accepts(path: $0, category: $1, snapshot: $2, home: home) })
             let cleaner = CleaningEngine(homeDirectory: home, recoveryStore: store,
                                          fixtureBoundary: root.standardizedFileURL)
-            let system = CleanableItem(name: systemFile.lastPathComponent, path: systemFile.path, size: Int64(data.count),
+            let system = CleanableItem(name: physicalSystem.lastPathComponent, path: physicalSystem.path, size: Int64(data.count),
                                        category: .systemJunk, isSelected: false, lastModified: nil)
             try require(RecoveryPathPolicy.systemJunkRoots(home: home.path).contains("/tmp"), "The scan uses a different temporary root")
             let result = await ScanEngine(homeDirectory: home, samplesOnly: true).scanCategory(.largeFiles)

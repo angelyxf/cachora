@@ -1189,3 +1189,21 @@
 "Remaining files were left in place. Moved copies can be restored from the Trash." = "剩餘檔案仍在原處，已移動的副本可從垃圾桶還原。";
 
 "Purgeable space is managed by macOS and is not included in cleanup." = "可清除空間由 macOS 管理，不包含在本次清理範圍內。";
+
+/* File review and recovery copy */
+"Recovery storage" = "Recovery storage";
+"Recovery storage is excluded from duplicate file operations." = "Recovery storage is excluded from duplicate file operations.";
+"The recovery copy changed. Review it and save a separate copy." = "The recovery copy changed. Review it and save a separate copy.";
+"An item already exists there. Choose a new name or location." = "An item already exists there. Choose a new name or location.";
+"Choose a new location outside the recovery storage and original path." = "Choose a new location outside the recovery storage and original path.";
+"Copy saved to %@" = "Copy saved to %@";
+"Save a copy…" = "Save a copy…";
+"Save the current contents to a new location. The recovery copy stays here." = "Save the current contents to a new location. The recovery copy stays here.";
+"Save a recovery copy" = "Save a recovery copy";
+"Save Copy" = "Save Copy";
+"Copy of %@" = "Copy of %@";
+"Recovery copy changed" = "Recovery copy changed";
+"Some files changed or could not be verified. Review the current files and confirm again." = "Some files changed or could not be verified. Review the current files and confirm again.";
+"Some files could not be verified. Cancel and review the selection again." = "Some files could not be verified. Cancel and review the selection again.";
+"Checking selected files…" = "Checking selected files…";
+"Could not verify this file" = "Could not verify this file";

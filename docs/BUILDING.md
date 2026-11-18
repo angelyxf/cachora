@@ -1,13 +1,13 @@
 # Cachora 源码编译与样本验证
 
-适用于 `0.1.0 / Build 18`。普通应用名为 Cachora；内部模块、工程与部分测试文件沿用 PureMac。当前公开源码，不公开安装包。
+适用于 `0.1.0 / Build 20`。普通应用名为 Cachora，内部模块、工程与部分测试文件沿用 PureMac。当前开放源码，安装包仅供本机验证。
 
 ## 环境要求
 
 | 项目 | 要求与验证范围 |
 | --- | --- |
 | 机器 | Apple Silicon Mac。当前脚本固定生成 `arm64`，不生成 Intel 或 Universal 应用。 |
-| 系统 | 编译目标为 macOS 13。已在 macOS 27.0.1 本机完成构建和图形样本验证；GitHub Actions 在 `macos-15` 运行构建及样本检查，不能据此宣称所有系统的界面均已实测。 |
+| 系统 | 编译目标为 macOS 13。Build 20 已在 macOS 27.2.1 本机完成构建和样本检查。GitHub Actions 使用 `macos-15`，运行结果见 [Cachora checks](https://github.com/angelyxf/cachora/actions/workflows/build.yml?query=branch%3Amain)。 |
 | Apple 开发工具 | 可用的 Swift 编译器与兼容 macOS SDK，可来自 Command Line Tools 或完整 Xcode。脚本使用 Swift 5 语言模式。 |
 | Python | Python 3，脚本仅使用标准库，无需 `pip install`。 |
 | 签名 | 本地构建使用临时签名，无需付费 Apple 开发者账号；这不包含 Developer ID 签名或公证。 |
@@ -33,9 +33,15 @@ cd cachora
 python3 scripts/build-local-app.py
 ```
 
-脚本依次运行扫描、恢复存储、完整源码清理恢复集成和发布规则检查，共 92 项；通过后编译应用、打包图标及本地化文件，最后执行临时签名和签名完整性检查。
+已有仓库且当前分支为 `main` 时，可在仓库根目录运行 `git pull --ff-only` 更新源码，再运行构建命令。Build 20 已从 `/private/tmp` 下的干净源码目录完整构建，样本覆盖 `/private/tmp` 和 `/tmp` 两种路径写法的清理与恢复。
 
-成功时输出 `Built and signature-verified: .../build-local/Cachora.app`。这句话只代表本地签名完整性通过，不代表 Apple 公证。
+脚本先运行 99 项 Swift 样本检查，通过后编译应用、打包图标及本地化文件，再执行本地签名和完整性检查。成功时输出 `Built and signature-verified: .../build-local/Cachora.app`。
+
+核对构建号。Build 20 的输出应为 `20`。
+
+```sh
+/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' build-local/Cachora.app/Contents/Info.plist
+```
 
 ```sh
 open build-local/Cachora.app
@@ -56,7 +62,7 @@ open "$(dirname "$(dirname "$fixture_root")")/CachoraFixture.app"
 
 样本生成器在 `/private/tmp/cachora-fixture-…/` 创建独立目录，包含虚构应用、缓存、重复文档、图片和备份；不会复制用户文件。构建命令会打印样本应用的完整路径。
 
-窗口会显示“Cachora 测试版”和测试横幅，表示同一 Build 18 启用了隔离路径。样本清理、恢复和移入废纸篓都在该临时目录内进行；不会使用真实废纸篓。系统状态页仍会读取本机状态，因此对外截图只选样本文件页面。
+窗口会显示“Cachora 测试版”和测试横幅，表示同一 Build 20 启用了隔离路径。样本清理、恢复和移动都在生成的临时目录内进行，移走的测试副本保存在样本废纸篓。系统状态页仍会读取本机状态，因此对外截图只选样本文件页面。
 
 可按以下步骤验证：
 
@@ -72,7 +78,7 @@ open "$(dirname "$(dirname "$fixture_root")")/CachoraFixture.app"
 ## 单独运行检查
 
 ```sh
-# 92 项 Swift 样本检查，不生成应用包
+# 99 项 Swift 样本检查，不生成应用包
 python3 scripts/build-local-app.py --tests-only
 
 # 23 项打包与公证状态检查；Apple 响应使用模拟，不向 Apple 提交应用
@@ -82,7 +88,7 @@ python3 -m unittest discover -s scripts/tests -v
 python3 scripts/prepare-beta.py --check
 ```
 
-GitHub Actions 的 [Cachora checks](https://github.com/angelyxf/cachora/actions/workflows/build.yml) 运行普通应用构建及以上 Python、公开源码检查。通过不代表完整上游 XCTest、Intel 或每个系统版本都已验证，具体范围见 [验证与发行状态](RELEASE-STATUS.md)。
+GitHub Actions 运行普通应用构建、23 项 Python 检查和公开源码检查，共 122 项自动检查。查看 [主分支运行记录](https://github.com/angelyxf/cachora/actions/workflows/build.yml?query=branch%3Amain) 或 [本版验证范围](RELEASE-STATUS.md)。
 
 ## 日志和常见问题
 

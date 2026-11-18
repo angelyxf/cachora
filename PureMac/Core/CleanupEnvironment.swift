@@ -91,6 +91,7 @@ struct CleanupEnvironment: Sendable {
         RecoveryStore(root: recoveryRoot,
             allowedRoots: isFixture ? [home] : CleaningEngine.recoveryRoots(home: home),
             allowedRootItems: isFixture ? [] : CleaningEngine.recoveryRootItems(home: home),
+            copyDestinationRoot: isFixture ? home : nil,
             pathValidator: { path, category, snapshot in
                 RecoveryPathPolicy.accepts(path: path, category: category, snapshot: snapshot, home: home)
             })

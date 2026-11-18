@@ -1,6 +1,6 @@
 # 轻盘 macOS 安装包
 
-当前为免费本机稳定版本 0.1.0（Build 18），保留清理复核与恢复流程。DMG 使用“拖入 Applications”的方式安装，同时准备 ZIP 作为应用更新包。当前仅打包已验证的 Apple Silicon / arm64 应用。
+当前为免费本机稳定版本 0.1.0（Build 20）。DMG 使用“拖入 Applications”的方式安装，ZIP 可手动解压。两种安装包仅供本机验证，适用于 Apple Silicon（arm64）。
 
 ## 先完成本地安装验证
 

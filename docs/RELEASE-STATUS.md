@@ -1,10 +1,30 @@
-# Cachora 0.1.0 · Build 18 验证与发行状态
+# Cachora 0.1.0 · Build 20 验证与发行状态
+
+Build 20 提供 GitHub 源码和本机验证包。DMG 与 ZIP 仅保留在本机，使用临时签名。公开下载安装需要另行完成 Developer ID 签名和 Apple 公证。
+
+## Build 20 验证
+
+在 Apple Silicon、macOS 27.2.1 和 CLT 的 macOS 26.5 SDK 上，从 `/private/tmp` 下的独立源码副本完整编译并验签。编译目标为 macOS 13、arm64。
+
+| 检查 | 本机结果 |
+| --- | --- |
+| 扫描、恢复存储、完整源码清理恢复集成、发布与功能回归 | 7、29、16、47 项，共 99 项通过 |
+| 安装包及公证状态检查 | 23 项通过，Apple 响应使用模拟 |
+| 临时路径下清理恢复 | 样本从 `/private/tmp` 和 `/tmp` 两种路径移入恢复区，重新读取记录并恢复 |
+| 重复文件批量移动 | 10 份各 1 MiB 的样本副本，校验读取量由 52 MiB 降为 32 MiB。每次移动前仍核对保留件和待移动副本 |
+| 本地 DMG 与 ZIP | 通过隔离安装、验签和 SHA-256 核对 |
+
+Build 19 加入恢复区排除、卸载和残留移动前复核，以及变化副本另存，相关样本回归也包含在 Build 20。文件操作检查只处理生成的样本。Build 20 的验证范围为脚本构建、样本回归和隔离安装，图形演示见下方 Build 18 历史记录。
+
+GitHub Actions 使用 `macos-15` 从源码编译并运行相同的自动检查。查看 [main 分支运行记录](https://github.com/angelyxf/cachora/actions/workflows/build.yml?query=branch%3Amain) 或 [本机编译说明](BUILDING.md)。
+
+## Build 18 历史记录
 
 2026-11-13：Build 18 源码已通过 [PR #1](https://github.com/angelyxf/cachora/pull/1) 同步至 GitHub `main`（`4ec567b`）。[合并后的检查](https://github.com/angelyxf/cachora/actions/runs/43357979247) 已完成应用构建与 115 项样本检查。
 
 2026-11-12 完成的同版 DMG、ZIP 仍仅供本机使用，未上传为 GitHub Release 或公开下载。使用临时签名，尚未完成 Developer ID 签名、Apple 公证和 Gatekeeper 公开发行评估；没有改动实际 `/Applications`。
 
-## 本版修复
+### 修复内容
 
 稳定更新渠道只接受正式版本。切换渠道不再改变文件安全策略：定时扫描仅生成结果、文件移动必须手动复核，应用卸载与残留无法移入废纸篓时保留原文件，不转为管理员永久删除。旧命令行入口保持停用，完全磁盘访问权限仅由用户主动开启。
 
@@ -12,7 +32,7 @@
 
 打包同时核对版本、渠道和已编译源码摘要，拒绝旧构建和测试应用。DMG、ZIP 带 Build 18 文件名及 SHA256SUMS.txt。
 
-## 本版实际执行
+### 实际执行
 
 | 检查 | 结果 |
 | --- | --- |
@@ -37,25 +57,25 @@
 
 共执行 115 项自动检查。当前编译目标为 macOS 13、arm64；实际构建和图形验证环境为 macOS 27.0.1 / Apple Silicon，使用 CLT 的 macOS 26.5 SDK。目标最低系统版本不等于已在所有系统验证。
 
-## 延续的功能验证
+### 延续的功能验证
 
 此前构建已完成访达右键卸载选中包边界、临时目录清理恢复、大文件读取阻塞返回部分结果、系统日志跳过、相似照片中文统计、Apple 备份复核，以及 Homebrew 检查失败后禁用旧更新结果的样本验证。本版对应回归已重新运行；这些历史图形场景未全部重新逐一操作。
 
-构建 17 的 9 项重复文件筛选/忽略检查已包含在本版 43 项发布回归中。持久化忽略、撤销、文件变化后失效与筛选全选保留至少一份均通过。GitHub `main` 已更新至 Build 18；旧的源码内测 Release 仍是历史版本，不能作为 Build 18 安装包入口。本次稳定安装包尚未对外发布。
+构建 17 的 9 项重复文件筛选和忽略检查已包含在 Build 18 的 43 项发布回归中。持久化忽略、撤销、文件变化后失效与筛选全选保留至少一份均通过。历史内测 Release 仅提供当时的源码。
 
-## 首页截图验证
+### 首页截图验证
 
 2026-11-13 使用同一 Build 18 的隔离样本模式拍摄重复文件、清理复核与恢复记录。截图全部来自临时目录中生成的文件，没有使用真实文档、个人主目录或实际应用列表。重复文件演示按“示例”搜索并筛选文稿，全选后只选择两组中的 3 份多余副本，未执行移动。
 
 缓存演示只把 `01-Round-trip` 移入独立恢复区，拍摄后已恢复原位。全部 40 个样本文件的内容摘要、权限和扩展属性核对一致，范围外保护样本未改变。窗口中的“测试版”是隔离验证标识，产品版本仍为 `0.1.0 / Build 18`。
 
-## 本地交付记录
+### 本地交付记录
 
 唯一日常入口：`build-local/Cachora.app`。
 
 - 综合验证：`build-local/build18-stable-validation.json`
 - 样本核验：`build-local/build18-samples.json`
-- 安装包与校验码：`build-local/installer-preview-latest.json` 指向本次独立目录
+- 当时的安装包与校验码位于 `build-local/installer-preview/0.1.0-build18/`
 - 自动检查日志：`build-local/scan-regressions.log`、`recovery-store-tests.log`、`cleanup-recovery-integration.log`、`release-readiness.log`
 
 首次编译与隔离验证见 [源码编译与样本验证](BUILDING.md)；后续公开发行步骤见 [构建与发布说明](BETA-RELEASE.md) 及 [macOS 安装包说明](MACOS-DISTRIBUTION.md)。

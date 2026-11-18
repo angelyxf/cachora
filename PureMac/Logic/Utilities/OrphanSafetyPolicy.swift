@@ -92,6 +92,13 @@ enum OrphanSafetyPolicy {
         return true
     }
 
+    static func trashReviewedCandidate(_ url: URL, review: TrashSelection, sampleHome: URL?,
+                                       trash: (URL) throws -> Void) throws {
+        guard isSafeCandidate(url, sampleHome: sampleHome) else { throw RecoveryFailure.unsafePath }
+        try review.requireUnchanged(url)
+        try trash(url)
+    }
+
     private static func normalizedPath(_ url: URL) -> String {
         let standardized = url.standardizedFileURL
         return standardized.resolvingSymlinksInPath().path

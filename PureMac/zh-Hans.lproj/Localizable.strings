@@ -1188,3 +1188,21 @@
 "Remaining files were left in place. Moved copies can be restored from the Trash." = "剩余文件仍在原处，已移动的副本可从废纸篓恢复。";
 
 "Purgeable space is managed by macOS and is not included in cleanup." = "可清除空间由 macOS 管理，不包含在本次清理范围内。";
+
+/* File review and recovery copy */
+"Recovery storage" = "恢复区";
+"Recovery storage is excluded from duplicate file operations." = "重复文件工具会跳过恢复区。";
+"The recovery copy changed. Review it and save a separate copy." = "恢复副本已变化。请复核后另存副本。";
+"An item already exists there. Choose a new name or location." = "该位置已有同名项目。请选择新名称或位置。";
+"Choose a new location outside the recovery storage and original path." = "请选择恢复区和原位置以外的新路径。";
+"Copy saved to %@" = "副本已另存到 %@";
+"Save a copy…" = "另存副本…";
+"Save the current contents to a new location. The recovery copy stays here." = "将当前内容保存到新位置，原副本留在恢复区。";
+"Save a recovery copy" = "另存恢复副本";
+"Save Copy" = "另存副本";
+"Copy of %@" = "%@ 的副本";
+"Recovery copy changed" = "恢复副本已变化";
+"Some files changed or could not be verified. Review the current files and confirm again." = "部分文件已变化或无法核对。请重新复核并确认。";
+"Some files could not be verified. Cancel and review the selection again." = "部分文件无法核对。请取消并重新复核所选文件。";
+"Checking selected files…" = "正在核对所选文件…";
+"Could not verify this file" = "此文件无法核对";

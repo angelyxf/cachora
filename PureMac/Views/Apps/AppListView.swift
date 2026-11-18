@@ -56,9 +56,20 @@ struct AppListView: View {
         }
         .sheet(item: $pendingRemoval) { selection in
             TrashReviewSheet(title: "Remove selected app files?", selection: selection,
-                             isFixture: appState.cleanupEnvironment.isFixture) {
-                appState.removeSelectedFiles(confirmedURLs: $0)
+                             isFixture: appState.cleanupEnvironment.isFixture, verifyFiles: true) {
+                appState.removeSelectedFiles(review: $0)
             }
+        }
+        .onChange(of: appState.removalNeedsFullDiskAccess) { needsAccess in
+            if needsAccess { appState.requestUninstallAccess() }
+        }
+        .alert("Removal Failed", isPresented: Binding(
+            get: { appState.removalError != nil && !appState.removalNeedsFullDiskAccess },
+            set: { if !$0 { appState.removalError = nil } }
+        )) {
+            Button("OK", role: .cancel) { appState.removalError = nil }
+        } message: {
+            Text(appState.removalError ?? "")
         }
     }
 

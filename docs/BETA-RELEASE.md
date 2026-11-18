@@ -1,6 +1,6 @@
 # Cachora 构建与发布说明
 
-产品名称：轻盘 · Cachora。本机稳定版本 `0.1.0`（Build 18），包标识 `io.github.angelyxf.cachora`。源码内部仍沿用 PureMac 的模块和目录名称；保留其 MIT 许可和作者信息。
+轻盘 · Cachora 的本机稳定版本为 `0.1.0`（Build 20），包标识为 `io.github.angelyxf.cachora`。源码内部沿用 PureMac 的模块和目录名称，保留其 MIT 许可和作者信息。
 
 ## 本次开放范围
 
@@ -48,10 +48,10 @@ python3 scripts/sign-notarize.py --run \
   --notary-profile YOUR_STORED_PROFILE
 ```
 
-脚本通过已有钥匙串配置调用 Apple 服务，不把密钥、密码或证书内容写入仓库。缺少条件会停止并报告，不发布未公证安装包。本机稳定包不等于通过 Apple 公证的公开下载包；安装包的分发状态要以构建记录为准。这些脚本不会自动发布源码或安装包。Build 18 源码已同步至 GitHub `main`；安装包仍只保留本地。
+脚本通过已有钥匙串配置调用 Apple 服务，缺少条件会停止并报告。Build 20 通过 GitHub `main` 提供源码，安装包仅保留在本机。实际验证范围见 [发布状态](RELEASE-STATUS.md)。
 
 ## 后续公开测试
 
 首批建议 10–20 人，记录安装结果、系统和芯片版本、扫描遗漏、冲突提示、恢复结果。反馈前自行遮盖私人路径和内容。先处理阻止安全试用的问题，再验证新增高级功能的付费意愿。
 
-当前免费，无付款入口。自定义规则、空间报告、团队管理等属于后续候选功能，尚未实现或承诺。本次本地验证结果见 `build-local/build18-stable-validation.json`。已验证范围见 [发布状态](RELEASE-STATUS.md)。
+当前免费，无付款入口。自定义规则、空间报告、团队管理等属于后续候选功能，尚未实现或承诺。

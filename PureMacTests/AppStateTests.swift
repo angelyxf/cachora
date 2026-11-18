@@ -58,39 +58,17 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(state.selectedFiles.isEmpty)
     }
 
-    func testFullDiskAccessRetryKeepsUninstallInTrashFlow() async {
-        let expectedURLs: Set<URL> = [
-            URL(fileURLWithPath: "/Applications/Fixture.app"),
-            URL(fileURLWithPath: "/Users/fixture/Library/Containers/com.fixture.app")
-        ]
-        var receivedURLs: Set<URL> = []
-        let invoked = expectation(description: "app file trasher")
-        let state = AppState(
-            performStartupTasks: false,
-            appFileTrasher: { urls, completion in
-                receivedURLs = Set(urls)
-                completion(urls, false, [], [])
-                invoked.fulfill()
-            }
-        )
-        let items = expectedURLs.map {
-            CleanableItem(
-                name: $0.lastPathComponent,
-                path: $0.path,
-                size: 100,
-                category: .systemJunk,
-                isSelected: true,
-                lastModified: nil
-            )
+    func testUninstallRejectsAPathWithoutAnExplicitReview() async throws {
+        try await RecoveryChecks.fixture("unverified-uninstall") { f in
+            let source = try f.file()
+            let environment = CleanupEnvironment(home: f.home, recoveryRoot: f.vault, isFixture: true, blockedReason: nil)
+            let state = AppState(performStartupTasks: false, cleanupEnvironment: environment,
+                                 scheduler: SchedulerService(defaults: nil))
+            state.removeSelectedFiles(review: TrashSelection(urls: [source]))
+            for _ in 0..<100 where state.isRemovingAppFiles { try await Task.sleep(nanoseconds: 10_000_000) }
+            XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+            XCTAssertNotNil(state.removalError)
         }
-
-        await state.retryAfterFullDiskAccess(
-            items: items,
-            context: .uninstall(appName: "Fixture", failedCount: items.count)
-        )
-        await fulfillment(of: [invoked], timeout: 1)
-
-        XCTAssertEqual(receivedURLs, expectedURLs)
     }
 
     func testVisibleSelectionPreservesHiddenRowsAndManualDefaults() {

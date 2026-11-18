@@ -101,8 +101,9 @@ struct OrphanListView: View {
         .sheet(item: $pendingRemoval) { selection in
             TrashReviewSheet(title: "Remove selected leftovers?", selection: selection,
                              isFixture: appState.cleanupEnvironment.isFixture,
-                             details: "App matching is an estimate. Review the files before moving them.") { batch in
-                Task { await removeSelectedOrphans(batch) }
+                             details: "App matching is an estimate. Review the files before moving them.",
+                             verifyFiles: true) { review in
+                Task { await removeSelectedOrphans(review) }
             }
         }
         .alert("Some files could not be removed", isPresented: Binding(
@@ -147,33 +148,37 @@ struct OrphanListView: View {
         )
     }
 
-    private func removeSelectedOrphans(_ batch: Set<URL>) async {
-        guard !isRemoving else { return }
+    private func removeSelectedOrphans(_ review: TrashSelection) async {
+        guard !isRemoving, appState.cleanupEnvironment.blockedReason == nil else { return }
         isRemoving = true
         defer { isRemoving = false }
 
-        let urlsToRemove = batch.intersection(appState.orphanedFiles)
-        let sampleHome = appState.cleanupEnvironment.sampleHome
-        let sampleTrash = appState.cleanupEnvironment.sampleTrash
-        var failedPaths: [String] = []
-        var removedURLs: Set<URL> = []
-
-        for url in urlsToRemove {
-            guard OrphanSafetyPolicy.isSafeCandidate(url, sampleHome: sampleHome) else {
-                failedPaths.append("\(url.path) (\(String(localized: "blocked by safety policy")))")
-                continue
-            }
-
-            let outcome = await Task.detached(priority: .userInitiated) {
-                Self.removeOrphan(url, sampleHome: sampleHome, sampleTrash: sampleTrash)
-            }.value
-            switch outcome {
-            case .removed:
-                removedURLs.insert(url)
-            case .failed:
-                failedPaths.append(url.path)
-            }
+        let urlsToRemove = review.urls.sorted { $0.path < $1.path }
+        guard review.urls.isSubset(of: Set(appState.orphanedFiles)) else {
+            removalErrorMessage = TrashSelection.changedMessage(urlsToRemove)
+            return
         }
+        let sampleHome = appState.cleanupEnvironment.sampleHome
+        let trash = appState.cleanupEnvironment.sampleTrash ?? { url in
+            try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+        }
+        let (removedURLs, changed, failedPaths) = await Task.detached(priority: .userInitiated) {
+            var moved: Set<URL> = []
+            var failed: [String] = []
+            var changed = urlsToRemove.count > 1 ? review.changedURLs() : []
+            guard changed.isEmpty else { return (moved, changed, failed) }
+            for url in urlsToRemove {
+                do {
+                    try OrphanSafetyPolicy.trashReviewedCandidate(url, review: review, sampleHome: sampleHome, trash: trash)
+                    moved.insert(url)
+                } catch RecoveryFailure.changed {
+                    changed.append(url)
+                } catch {
+                    failed.append(url.path + " · " + error.localizedDescription)
+                }
+            }
+            return (moved, changed, failed)
+        }.value
 
         // Sweep removed rows out (per-row transitions are attached in the
         // List above); plain assignment under Reduce Motion.
@@ -186,36 +191,18 @@ struct OrphanListView: View {
         }
         selectedOrphans.subtract(removedURLs)
 
+        var messages: [String] = []
+        if !changed.isEmpty { messages.append(TrashSelection.changedMessage(changed)) }
         if !failedPaths.isEmpty {
             let preview = failedPaths.prefix(3).joined(separator: "\n")
             let suffix = failedPaths.count > 3 ? "\n…" : ""
-            removalErrorMessage = String(
+            messages.append(String(
                 format: String(localized: "%lld item(s) failed to delete.\n\n%@"),
                 Int64(failedPaths.count),
                 preview + suffix
-            )
+            ))
         }
-    }
-
-    private enum OrphanRemoveOutcome: Sendable {
-        case removed
-        case failed
-    }
-
-    private nonisolated static func removeOrphan(_ url: URL, sampleHome: URL?,
-                                                sampleTrash: (@Sendable (URL) throws -> Void)?) -> OrphanRemoveOutcome {
-        guard OrphanSafetyPolicy.isSafeCandidate(url, sampleHome: sampleHome) else { return .failed }
-        do {
-            if let sampleTrash {
-                try sampleTrash(url)
-            } else {
-                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
-            }
-            return .removed
-        } catch {
-            // A failed Trash move leaves the item in place in every release channel.
-            return .failed
-        }
+        removalErrorMessage = messages.isEmpty ? nil : messages.joined(separator: "\n\n")
     }
 
     private func revealInFinder(_ url: URL) {
